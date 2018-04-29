@@ -7,22 +7,22 @@ set -o errexit
 trap cleanup EXIT
 
 cleanup() {
-  # Kill the testrpc instance that we started (if we started one and if it's still running).
-  if [ -n "$testrpc_pid" ] && ps -p $testrpc_pid > /dev/null; then
-    echo "Killing testrpc that was started!"
-    kill -9 $testrpc_pid
+  # Kill the ganache instance that we started (if we started one and if it's still running).
+  if [ -n "$ganache_pid" ] && ps -p $ganache_pid > /dev/null; then
+    echo "Killing ganache that was started!"
+    kill -9 $ganache_pid
   else
-    echo "We didn't started testrpc. Can't kill what wasn't started by you!"
+    echo "We didn't started ganache. Can't kill what wasn't started by you!"
   fi
 }
 
-testrpc_port=8545
+ganache_port=8545
 
-testrpc_running() {
-  nc -z localhost "$testrpc_port"
+ganache_running() {
+  nc -z localhost "$ganache_port"
 }
 
-start_testrpc() {
+start_ganache() {
   # We define 10 accounts with balance 1M ether, needed for high-value tests.
   local accounts=(
     --account="0x2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200,1000000000000000000000000"
@@ -37,18 +37,18 @@ start_testrpc() {
     --account="0x2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501209,1000000000000000000000000"
   )
 
-  testrpc --gasLimit 0xfffffffffff "${accounts[@]}" > /dev/null &
+  node_modules/.bin/ganache-cli --gasLimit 0xfffffffffff "${accounts[@]}" > /dev/null &
 
-  testrpc_pid=$!
+  ganache_pid=$!
 
-  echo "Started testrpc with pid " $testrpc_pid
+  echo "Started ganache with pid " $ganache_pid
 }
 
-if testrpc_running; then
-  echo "Using existing testrpc instance"
+if ganache_running; then
+  echo "Using existing ganache instance"
 else
-  echo "Starting our own testrpc instance"
-  start_testrpc
+  echo "Starting our own ganache instance"
+  start_ganache
 fi
 
 truffle test "$@"

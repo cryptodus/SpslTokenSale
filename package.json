@@ -27,7 +27,8 @@
     "babel-register": "^6.26.0",
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
-    "chai-bignumber": "^2.0.2"
+    "chai-bignumber": "^2.0.2",
+    "ganache-cli": "6.1.0"
   },
   "dependencies": {
     "openzeppelin-solidity": "1.9.0"
