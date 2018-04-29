@@ -22,9 +22,17 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let advisor = accounts[5];
   let founder = accounts[6];
 
+  let uncappedPhaseRate = 10000;
+  let caps = [71500e21, 137500e21, 198000e21];
+  let rates = [13000, 12000, 11000];
+  let openingTime = latestTime() + duration.weeks(1);
+  let closingTime = openingTime + duration.days(60);
+  let uncappedOpeningTime = openingTime + duration.days(15);
+  let totalIcoCap = 448e24;
+
   beforeEach(async function () {
     this.token = await Token.new();
-    this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet);
+    this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate, rates, caps, openingTime, closingTime, uncappedOpeningTime, totalIcoCap);
   });
 
   describe('check initial setup', function() {
