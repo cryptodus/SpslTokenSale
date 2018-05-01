@@ -13,6 +13,7 @@ const should = require('chai')
 
 const Token = artifacts.require("./Token")
 const TokenCrowdsale = artifacts.require("./TokenCrowdsale");
+const TeamTokenHolder = artifacts.require("./TeamTokenHolder");
 
 contract('TokenCrowdsaleTest', function (accounts) {
   let investor = accounts[0];
@@ -33,9 +34,14 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let fundationPercentage = 40;
   let icoPercentage = 60;
 
+  let vestingCliff = duration.years(1);
+  let vestingDuration = duration.years(5);
+
   beforeEach(async function () {
     this.token = await Token.new();
-    this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate, rates, caps, openingTime, closingTime, uncappedOpeningTime, totalIcoCap, fundation, fundationPercentage, lockupWallet);
+    // this.teamTokenHolder = await TeamTokenHolder.new(owner, beneficiary, vestingStart, vestingCliff, vestingDuration);
+    this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate, rates, caps, openingTime, closingTime, uncappedOpeningTime, totalIcoCap, fundation, fundationPercentage, lockupWallet);  
+    await this.token.transferOwnership(this.crowdsale.address);
   });
 
   describe('check initial setup', function() {
