@@ -170,9 +170,10 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
 
     Token _token = Token(token);
 
-    require(_token.mint(foundationWallet, _token.cap().mul(foundationPercentage).div(100)));
+    uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
+    require(_token.mint(foundationWallet, _foundationTokens));
 
-    uint256 _leftoverTokens = icoTotalCap.sub(_token.totalSupply());
+    uint256 _leftoverTokens = _token.cap().sub(_token.totalSupply());
     require(_token.mint(lockupWallet, _leftoverTokens));
 
     require(_token.finishMinting());
