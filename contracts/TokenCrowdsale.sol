@@ -17,6 +17,13 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   // Date when uncapped  starts
   uint256 uncappedOpeningTime;
 
+  address foundationWallet;
+  uint256 foundationPercentage;
+
+  address lockupWallet;
+
+  uint256 public finalizedTime;
+
   function TokenCrowdsale(
       Token _token,
       address _wallet,
@@ -26,7 +33,10 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
       uint256 _openingTime,
       uint256 _closingTime,
       uint256 _uncappedOpeningTime,
-      uint256 _icoTotalCap
+      uint256 _icoTotalCap,
+      address _foundationWallet,
+      uint256 _foundationPercentage,
+      address _lockupWallet
   )
       public
       Crowdsale(_uncappedRate, _wallet, _token)
@@ -44,6 +54,9 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      capsTo = _capsTo;
      uncappedOpeningTime = _uncappedOpeningTime;
      icoTotalCap = _icoTotalCap;
+     foundationWallet = _foundationWallet;
+     foundationPercentage = _foundationPercentage;
+     lockupWallet = _lockupWallet;
   }
 
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
@@ -148,5 +161,23 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
       }
       _i = _i.add(1);
     }
+  }
+
+  // OpenZeppelin FinalizableCrowdsale method override
+  function finalization() internal {
+    // allow finalize only once
+    require(finalizedTime == 0);
+
+    Token _token = Token(token);
+
+    require(_token.mint(foundationWallet, _token.cap().mul(foundationPercentage).div(100)));
+
+    uint256 _leftoverTokens = icoTotalCap.sub(_token.totalSupply());
+    require(_token.mint(lockupWallet, _leftoverTokens));
+
+    require(_token.finishMinting());
+    _token.transferOwnership(wallet);
+
+    finalizedTime = block.timestamp;
   }
 }

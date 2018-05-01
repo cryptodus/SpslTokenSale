@@ -35,7 +35,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
 
   beforeEach(async function () {
     this.token = await Token.new();
-    this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate, rates, caps, openingTime, closingTime, uncappedOpeningTime, totalIcoCap);
+    this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate, rates, caps, openingTime, closingTime, uncappedOpeningTime, totalIcoCap, fundation, fundationPercentage, lockupWallet);
   });
 
   describe('check initial setup', function() {
