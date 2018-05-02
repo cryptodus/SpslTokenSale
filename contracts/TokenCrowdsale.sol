@@ -7,17 +7,23 @@ import './Token.sol';
 contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   using SafeMath for uint256;
 
-  // Should not be able to send more tokens than this amount
-  uint256 icoTotalCap;
+  // Should not be able to buy more tokens than this amount
+  uint256 public icoTotalCap;
+
+  // Should not be able to buy more tokens in capped stage than this amount
+  uint256 public capedStageFinalCap;
 
   // While tokens are sold in the capped state their rate is calculated based on these
-  uint256[] rates;
-  uint256[] capsTo;
+  uint256[] public rates;
+  uint256[] public capsTo;
 
   // Date when uncapped  starts
-  uint256 uncappedOpeningTime;
+  uint256 public uncappedOpeningTime;
 
-  function TokenCrowdsale(
+  // Saving wei that is returned for last phase purchasers
+  uint256 public overflowWei;
+
+  constructor(
       Token _token,
       address _wallet,
       uint256 _uncappedRate,
@@ -44,13 +50,14 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      capsTo = _capsTo;
      uncappedOpeningTime = _uncappedOpeningTime;
      icoTotalCap = _icoTotalCap;
+     capedStageFinalCap = _capsTo[_capsTo.length.sub(1)];
   }
 
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
     super._preValidatePurchase(_beneficiary, _weiAmount);
     require(token.totalSupply() < icoTotalCap);
     if (block.timestamp <= uncappedOpeningTime) {
-      require(capsTo[capsTo.length.sub(1)] > token.totalSupply());
+      require(capedStageFinalCap > token.totalSupply());
     }
   }
 
@@ -83,25 +90,24 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     uint256 _currentSupply = token.totalSupply();
     uint256 _tokensForRate = 0;
     uint256 _weiReq = 0;
-    var (_capTo, _rate) = _getRateFor(_currentSupply);
+
+    uint256 _rateIndex = _getRateIndex(_currentSupply);
 
     // while we can purchase all tokens in current cap-rate step, move to other step
-    while (_weiAmount > 0 && _currentSupply < capsTo[capsTo.length.sub(1)]) {
-      _tokensForRate = _capTo.sub(_currentSupply);
-      _weiReq = _tokensForRate.div(_rate);
-      if (_weiReq < _weiAmount) {
-        // if wei required for tokens is less than we have - all tokens from the step can be pruchased
-         _tokenAmount = _tokenAmount.add(_tokensForRate);
-      } else {
+    while (_weiAmount > 0 && _rateIndex < rates.length) {
+      _tokensForRate = capsTo[_rateIndex].sub(_currentSupply);
+      _weiReq = _tokensForRate.div(rates[_rateIndex]);
+      if (_weiReq > _weiAmount) {
         // if wei required is more or equal than we have - we can purchase only part of the cap-rate step tokens
-         _tokenAmount = _tokenAmount.add(_weiAmount.mul(_rate));
+         _tokensForRate = _weiAmount.mul(rates[_rateIndex]);
          _weiReq = _weiAmount;
       }
 
       _weiSpent = _weiSpent.add(_weiReq);
       _weiAmount = _weiAmount.sub(_weiReq);
+      _tokenAmount = _tokenAmount.add(_tokensForRate);
       _currentSupply = token.totalSupply().add(_tokenAmount);
-      (_capTo, _rate) = _getRateFor(_currentSupply);
+      _rateIndex = _rateIndex.add(1);
     }
 
     super._processPurchase(_beneficiary, _tokenAmount);
@@ -130,8 +136,9 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     require(_weiAmount <= msg.value);
     if (msg.value > _weiAmount) {
       uint256 _weiToReturn = msg.value.sub(_weiAmount);
-      weiRaised = weiRaised.sub(_weiAmount);
-      _beneficiary.transfer(_weiAmount);
+      weiRaised = weiRaised.sub(_weiToReturn);
+      overflowWei = _weiToReturn;
+      _beneficiary.transfer(_weiToReturn);
     }
   }
 
@@ -139,14 +146,23 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     Method for retrieving rate and capTo for provided supply. It is used in capped
     state were rate depends on sold tokens amount
   */
-  function _getRateFor(uint256 _supply) internal view returns(uint256, uint256) {
-    require(capsTo[capsTo.length - 1] > _supply);
+  function _getRateIndex(uint256 _supply) internal view returns(uint256) {
+    require(capedStageFinalCap > _supply);
     uint256 _i = 0;
     while(_i < capsTo.length) {
       if (capsTo[_i] > _supply) {
-        return (capsTo[_i], rates[_i]);
+        return _i;
       }
       _i = _i.add(1);
     }
+    return _i;
+  }
+
+  /*
+    Method open-zeppelin override, we need to sub if any wei was returned
+  */
+  function _forwardFunds() internal {
+    wallet.transfer(msg.value.sub(overflowWei));
+    overflowWei = 0;
   }
 }
