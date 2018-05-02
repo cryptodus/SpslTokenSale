@@ -23,6 +23,13 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   // Saving wei that is returned for last phase purchasers
   uint256 public overflowWei;
 
+  address foundationWallet;
+  uint256 foundationPercentage;
+
+  address lockupWallet;
+
+  uint256 public finalizedTime;
+
   constructor(
       Token _token,
       address _wallet,
@@ -32,7 +39,10 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
       uint256 _openingTime,
       uint256 _closingTime,
       uint256 _uncappedOpeningTime,
-      uint256 _icoTotalCap
+      uint256 _icoTotalCap,
+      address _foundationWallet,
+      uint256 _foundationPercentage,
+      address _lockupWallet
   )
       public
       Crowdsale(_uncappedRate, _wallet, _token)
@@ -50,6 +60,9 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      capsTo = _capsTo;
      uncappedOpeningTime = _uncappedOpeningTime;
      icoTotalCap = _icoTotalCap;
+     foundationWallet = _foundationWallet;
+     foundationPercentage = _foundationPercentage;
+     lockupWallet = _lockupWallet;
      capedStageFinalCap = _capsTo[_capsTo.length.sub(1)];
   }
 
@@ -164,5 +177,30 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   function _forwardFunds() internal {
     wallet.transfer(msg.value.sub(overflowWei));
     overflowWei = 0;
+  }
+
+  /*
+   OpenZeppelin FinalizableCrowdsale method override - token distribution
+   and finishing routines
+  */
+  function finalization() internal {
+    // allow finalize only once
+    require(finalizedTime == 0);
+
+    Token _token = Token(token);
+
+    uint256 _privatePresaleTokens = uint256(140000000).mul(1 ether);
+    require(_token.mint(wallet, _privatePresaleTokens));
+
+    uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
+    require(_token.mint(foundationWallet, _foundationTokens));
+
+    uint256 _leftoverTokens = _token.cap().sub(_token.totalSupply());
+    require(_token.mint(lockupWallet, _leftoverTokens));
+
+    require(_token.finishMinting());
+    _token.transferOwnership(wallet);
+
+    finalizedTime = block.timestamp;
   }
 }
