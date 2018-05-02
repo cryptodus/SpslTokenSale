@@ -21,7 +21,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
   // should create tokenVesting wallet for the lockup
   let lockupWallet = accounts[2];
   let fundation = accounts[3];
-  let advisor = accounts[5];
+  let purchaser = accounts[5];
   let founder = accounts[6];
 
   let uncappedPhaseRate = 10000;
@@ -120,8 +120,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.finalize().should.be.fulfilled;
     });
     it('should allow finalize before closing time and tokens are sold', async function() {
-      await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(5000) }).should.be.fulfilled;
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(42000) }).should.be.fulfilled;
       await this.crowdsale.finalize().should.be.fulfilled;
     });
     it('should transfer ownership when finallized', async function () {
@@ -141,38 +141,38 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.finalize();
       let fundationBalance = await this.token.balanceOf(fundation);
       let tokenCap = await this.token.cap();
-      let expectedFundationBalance = tokenCap * 100 / fundationPercentage;
+      let expectedFundationBalance = new BigNumber(tokenCap).times(fundationPercentage/100);
       fundationBalance.should.be.bignumber.equal(expectedFundationBalance);
     });
     it('should assign correct ammount of tokens to fundation when all tokens where sold', async function() {
-      //TODO: fix the amount of eth so to make sure all tokens were bought
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(50000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(5000) }).should.be.fulfilled;
       await this.crowdsale.finalize();
       let fundationBalance = await this.token.balanceOf(fundation);
       let tokenCap = await this.token.cap();
-      let expectedFundationBalance = tokenCap * 100 / fundationPercentage;
+      let expectedFundationBalance = new BigNumber(tokenCap).times(fundationPercentage/100);
       fundationBalance.should.be.bignumber.equal(expectedFundationBalance);
     });
     it('should not assign any tokens to lockup when all tokens where sold', async function() {
-      //TODO: fix the amount of eth so to make sure all tokens were bought
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(70000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(5000) }).should.be.fulfilled;
       await this.crowdsale.finalize();
       let lockupBalance = await this.token.balanceOf(lockupWallet);
       lockupBalance.should.be.bignumber.equal(0);
     });
     it('should assign leftover tokens to lockup when some tokens where sold', async function() {
-      //TODO: fix the amount of eth so to make sure all tokens were bought
-      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor, { value: ether(10) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
       let investorBalance = await this.token.balanceOf(investor);
       let lockupBalance = await this.token.balanceOf(lockupWallet);
-      let totalBalance = investorBalance + lockupBalance;
+      let totalBalance = investorBalance.plus(lockupBalance);
       totalBalance.should.be.bignumber.equal(totalIcoCap);
     });
-    it('should not assign all ico tokens to lockup when no tokens where sold', async function() {
+    it('should assign all ico tokens to lockup when no tokens where sold', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
       let lockupBalance = await this.token.balanceOf(lockupWallet);

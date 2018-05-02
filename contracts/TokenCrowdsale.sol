@@ -179,12 +179,18 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     overflowWei = 0;
   }
 
-  // OpenZeppelin FinalizableCrowdsale method override
+  /*
+   OpenZeppelin FinalizableCrowdsale method override - token distribution
+   and finishing routines
+  */
   function finalization() internal {
     // allow finalize only once
     require(finalizedTime == 0);
 
     Token _token = Token(token);
+
+    uint256 _privatePresaleTokens = uint256(140000000).mul(1 ether);
+    require(_token.mint(wallet, _privatePresaleTokens));
 
     uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
     require(_token.mint(foundationWallet, _foundationTokens));

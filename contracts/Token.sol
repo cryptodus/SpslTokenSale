@@ -10,7 +10,7 @@ import 'openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol';
 */
 contract Token is CappedToken, PausableToken {
 
-  uint256 private constant TOKEN_CAP = 1000 * 10**24;
+  uint256 private constant TOKEN_CAP = 980 * 10**24;
 
   string public constant name = "SPSL token";
   string public constant symbol = "SPSL";
