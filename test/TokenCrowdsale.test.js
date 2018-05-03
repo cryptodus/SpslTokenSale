@@ -121,7 +121,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should allow finalize before closing time and tokens are sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(42000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor, { value: ether(44800) }).should.be.fulfilled;
       await this.crowdsale.finalize().should.be.fulfilled;
     });
     it('should transfer ownership when finallized', async function () {

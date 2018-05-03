@@ -28,8 +28,6 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
 
   address lockupWallet;
 
-  uint256 public finalizedTime;
-
   constructor(
       Token _token,
       address _wallet,
@@ -184,9 +182,6 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
    and finishing routines
   */
   function finalization() internal {
-    // allow finalize only once
-    require(finalizedTime == 0);
-
     Token _token = Token(token);
 
     uint256 _privatePresaleTokens = uint256(140000000).mul(1 ether);
@@ -201,6 +196,14 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     require(_token.finishMinting());
     _token.transferOwnership(wallet);
 
-    finalizedTime = block.timestamp;
+    super.finalization();
+  }
+
+  /**
+    OpenZeppelin TimedCrowdsale method override - checks whether the crowdsale is over
+  */
+  function hasClosed() public view returns (bool) {
+    bool _soldOut = token.totalSupply() >= icoTotalCap;
+    return super.hasClosed() || _soldOut;
   }
 }
