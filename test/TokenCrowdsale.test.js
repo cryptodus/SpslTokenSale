@@ -156,6 +156,14 @@ contract('TokenCrowdsaleTest', function (accounts) {
       let expectedFundationBalance = new BigNumber(tokenCap).times(fundationPercentage/100);
       fundationBalance.should.be.bignumber.equal(expectedFundationBalance);
     });
+    it('should assign correct ammount of tokens to private presale wallet when no tokens where sold', async function() {
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.finalize();
+      let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
+      let tokenCap = await this.token.cap();
+      let expectedPresaleWalletBalance = presaleCap;
+      presaleWalletBalance.should.be.bignumber.equal(expectedPresaleWalletBalance);
+    });
     it('should assign correct ammount of tokens to private presale wallet when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor, { value: ether(50000) }).should.be.fulfilled;
