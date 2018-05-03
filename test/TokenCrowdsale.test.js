@@ -23,6 +23,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let fundation = accounts[3];
   let purchaser = accounts[5];
   let founder = accounts[6];
+  let presaleWallet = accounts[7];
 
   let uncappedPhaseRate = 10000;
   let caps = [71500e21, 137500e21, 198000e21];
@@ -30,6 +31,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let totalIcoCap = 448e24;
   let fundationPercentage = 40;
   let icoPercentage = 60;
+  let presaleCap = 140e24;
 
   let vestingCliff = duration.years(1);
   let vestingDuration = duration.years(5);
@@ -48,8 +50,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
     this.uncappedOpeningTime = this.openingTime + duration.days(15);
     this.token = await Token.new();
     this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate,
-      rates, caps, this.openingTime, this.closingTime, this.uncappedOpeningTime, totalIcoCap,
-      fundation, fundationPercentage, lockupWallet);
+      rates, caps, this.openingTime, this.closingTime, this.uncappedOpeningTime,
+      fundation, fundationPercentage, lockupWallet, presaleWallet);
     await this.token.transferOwnership(this.crowdsale.address);
   });
 
@@ -153,6 +155,16 @@ contract('TokenCrowdsaleTest', function (accounts) {
       let tokenCap = await this.token.cap();
       let expectedFundationBalance = new BigNumber(tokenCap).times(fundationPercentage/100);
       fundationBalance.should.be.bignumber.equal(expectedFundationBalance);
+    });
+    it('should assign correct ammount of tokens to private presale wallet when all tokens where sold', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(50000) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.finalize();
+      let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
+      let tokenCap = await this.token.cap();
+      let expectedPresaleWalletBalance = presaleCap;
+      presaleWalletBalance.should.be.bignumber.equal(expectedPresaleWalletBalance);
     });
     it('should not assign any tokens to lockup when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));

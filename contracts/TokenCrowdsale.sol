@@ -28,6 +28,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
 
   address lockupWallet;
 
+  address privatePresaleWallet;
+
   constructor(
       Token _token,
       address _wallet,
@@ -37,10 +39,10 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
       uint256 _openingTime,
       uint256 _closingTime,
       uint256 _uncappedOpeningTime,
-      uint256 _icoTotalCap,
       address _foundationWallet,
       uint256 _foundationPercentage,
-      address _lockupWallet
+      address _lockupWallet,
+      address _privatePresaleWallet
   )
       public
       Crowdsale(_uncappedRate, _wallet, _token)
@@ -52,16 +54,15 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      require(_uncappedOpeningTime <= _closingTime);
      require(_uncappedOpeningTime >= _openingTime);
 
-     require(_icoTotalCap > 0);
-
      rates = _rates;
      capsTo = _capsTo;
      uncappedOpeningTime = _uncappedOpeningTime;
-     icoTotalCap = _icoTotalCap;
+     icoTotalCap = _token.ICO_SALE_CAP();
      foundationWallet = _foundationWallet;
      foundationPercentage = _foundationPercentage;
      lockupWallet = _lockupWallet;
      capedStageFinalCap = _capsTo[_capsTo.length.sub(1)];
+     privatePresaleWallet = _privatePresaleWallet;
   }
 
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
@@ -184,8 +185,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   function finalization() internal {
     Token _token = Token(token);
 
-    uint256 _privatePresaleTokens = uint256(140000000).mul(1 ether);
-    require(_token.mint(wallet, _privatePresaleTokens));
+    require(_token.mint(privatePresaleWallet, _token.PRIVATE_SALE_CAP()));
 
     uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
     require(_token.mint(foundationWallet, _foundationTokens));
