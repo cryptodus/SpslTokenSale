@@ -7,8 +7,8 @@ import './Token.sol';
 contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   using SafeMath for uint256;
 
-  // Should not be able to buy more tokens than this amount
-  uint256 public icoTotalCap;
+  uint256 public constant PRIVATE_SALE_CAP = 140 * 10**24;
+  uint256 public constant ICO_SALE_CAP = 448 * 10**24;
 
   // Should not be able to buy more tokens in capped stage than this amount
   uint256 public capedStageFinalCap;
@@ -57,7 +57,6 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      rates = _rates;
      capsTo = _capsTo;
      uncappedOpeningTime = _uncappedOpeningTime;
-     icoTotalCap = _token.ICO_SALE_CAP();
      foundationWallet = _foundationWallet;
      foundationPercentage = _foundationPercentage;
      lockupWallet = _lockupWallet;
@@ -67,7 +66,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
 
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
     super._preValidatePurchase(_beneficiary, _weiAmount);
-    require(token.totalSupply() < icoTotalCap);
+    require(token.totalSupply() < ICO_SALE_CAP);
     if (block.timestamp <= uncappedOpeningTime) {
       require(capedStageFinalCap > token.totalSupply());
     }
@@ -132,8 +131,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   */
   function _processUncappedPurchase(address _beneficiary, uint256 _tokenAmount) internal {
     uint256 _currentSupply = token.totalSupply();
-    if (_currentSupply.add(_tokenAmount) > icoTotalCap) {
-      _tokenAmount = icoTotalCap.sub(_currentSupply);
+    if (_currentSupply.add(_tokenAmount) > ICO_SALE_CAP) {
+      _tokenAmount = ICO_SALE_CAP.sub(_currentSupply);
     }
     super._processPurchase(_beneficiary, _tokenAmount);
     uint256 _weiAmount = _tokenAmount.div(rate);
@@ -185,7 +184,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   function finalization() internal {
     Token _token = Token(token);
 
-    require(_token.mint(privatePresaleWallet, _token.PRIVATE_SALE_CAP()));
+    require(_token.mint(privatePresaleWallet, PRIVATE_SALE_CAP));
 
     uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
     require(_token.mint(foundationWallet, _foundationTokens));
@@ -203,7 +202,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     OpenZeppelin TimedCrowdsale method override - checks whether the crowdsale is over
   */
   function hasClosed() public view returns (bool) {
-    bool _soldOut = token.totalSupply() >= icoTotalCap;
+    bool _soldOut = token.totalSupply() >= ICO_SALE_CAP;
     return super.hasClosed() || _soldOut;
   }
 }
