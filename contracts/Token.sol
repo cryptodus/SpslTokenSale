@@ -12,8 +12,6 @@ contract Token is CappedToken, PausableToken {
 
   uint256 private constant TOKEN_CAP = 980 * 10**24;
 
-  
-
   string public constant name = "SPSL token";
   string public constant symbol = "SPSL";
   uint8 public constant decimals = 18;
