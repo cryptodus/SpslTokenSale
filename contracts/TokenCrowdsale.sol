@@ -54,6 +54,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      require(_uncappedOpeningTime <= _closingTime);
      require(_uncappedOpeningTime >= _openingTime);
 
+     require((((ICO_SALE_CAP + PRIVATE_SALE_CAP)*100/_token.cap()) == 60));
+
      rates = _rates;
      capsTo = _capsTo;
      uncappedOpeningTime = _uncappedOpeningTime;
