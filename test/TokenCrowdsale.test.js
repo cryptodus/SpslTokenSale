@@ -20,16 +20,18 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let wallet = accounts[1];
   // should create tokenVesting wallet for the lockup
   let lockupWallet = accounts[2];
-  let fundation = accounts[3];
+  let foundation = accounts[3];
   let purchaser = accounts[5];
   let founder = accounts[6];
+  let presaleWallet = accounts[7];
 
   let uncappedPhaseRate = 10000;
   let caps = [71500e21, 137500e21, 198000e21];
   let rates = [13000, 12000, 11000];
   let totalIcoCap = 448e24;
-  let fundationPercentage = 40;
+  let foundationPercentage = 40;
   let icoPercentage = 60;
+  let presaleCap = 140e24;
 
   let vestingCliff = duration.years(1);
   let vestingDuration = duration.years(5);
@@ -48,8 +50,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
     this.uncappedOpeningTime = this.openingTime + duration.days(15);
     this.token = await Token.new();
     this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate,
-      rates, caps, this.openingTime, this.closingTime, this.uncappedOpeningTime, totalIcoCap,
-      fundation, fundationPercentage, lockupWallet);
+      rates, caps, this.openingTime, this.closingTime, this.uncappedOpeningTime,
+      foundation, foundationPercentage, lockupWallet, presaleWallet);
     await this.token.transferOwnership(this.crowdsale.address);
   });
 
@@ -121,7 +123,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should allow finalize before closing time and tokens are sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(42000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor, { value: ether(44800) }).should.be.fulfilled;
       await this.crowdsale.finalize().should.be.fulfilled;
     });
     it('should transfer ownership when finallized', async function () {
@@ -136,23 +138,41 @@ contract('TokenCrowdsaleTest', function (accounts) {
       let mintingFinished = await this.token.mintingFinished();
       mintingFinished.should.be.equal(true);
     });
-    it('should assign correct ammount of tokens to fundation when no tokens where sold', async function() {
+    it('should assign correct ammount of tokens to foundation when no tokens where sold', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let fundationBalance = await this.token.balanceOf(fundation);
+      let foundationBalance = await this.token.balanceOf(foundation);
       let tokenCap = await this.token.cap();
-      let expectedFundationBalance = new BigNumber(tokenCap).times(fundationPercentage/100);
-      fundationBalance.should.be.bignumber.equal(expectedFundationBalance);
+      let expectedfoundationBalance = new BigNumber(tokenCap).times(foundationPercentage/100);
+      foundationBalance.should.be.bignumber.equal(expectedfoundationBalance);
     });
-    it('should assign correct ammount of tokens to fundation when all tokens where sold', async function() {
+    it('should assign correct ammount of tokens to foundation when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor, { value: ether(50000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let fundationBalance = await this.token.balanceOf(fundation);
+      let foundationBalance = await this.token.balanceOf(foundation);
       let tokenCap = await this.token.cap();
-      let expectedFundationBalance = new BigNumber(tokenCap).times(fundationPercentage/100);
-      fundationBalance.should.be.bignumber.equal(expectedFundationBalance);
+      let expectedfoundationBalance = new BigNumber(tokenCap).times(foundationPercentage/100);
+      foundationBalance.should.be.bignumber.equal(expectedfoundationBalance);
+    });
+    it('should assign correct ammount of tokens to private presale wallet when no tokens where sold', async function() {
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.finalize();
+      let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
+      let tokenCap = await this.token.cap();
+      let expectedPresaleWalletBalance = presaleCap;
+      presaleWalletBalance.should.be.bignumber.equal(expectedPresaleWalletBalance);
+    });
+    it('should assign correct ammount of tokens to private presale wallet when all tokens where sold', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(50000) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.finalize();
+      let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
+      let tokenCap = await this.token.cap();
+      let expectedPresaleWalletBalance = presaleCap;
+      presaleWalletBalance.should.be.bignumber.equal(expectedPresaleWalletBalance);
     });
     it('should not assign any tokens to lockup when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
