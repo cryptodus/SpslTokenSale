@@ -48,13 +48,18 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
       Crowdsale(_uncappedRate, _wallet, _token)
       TimedCrowdsale(_openingTime, _closingTime)
   {
+     require(_lockupWallet != address(0));
+     require(_privatePresaleWallet != address(0));
+     require(_foundationWallet != address(0));
+
      require(_rates.length > 0);
      require(_rates.length == _capsTo.length);
 
      require(_uncappedOpeningTime <= _closingTime);
      require(_uncappedOpeningTime >= _openingTime);
 
-     require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(_token.cap()) == (100 - _foundationPercentage));
+     require(_foundationPercentage <= 100);
+     require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(_token.cap()) == uint256(100).sub(_foundationPercentage));
 
      rates = _rates;
      capsTo = _capsTo;
