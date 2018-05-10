@@ -110,7 +110,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should forward funds to wallet after purchase in the capped phase', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      
+
       var amount = ether(1);
       const prePurchaseBalance = web3.eth.getBalance(wallet);
       await this.crowdsale.buyTokens(investor1, { value: amount }).should.be.fulfilled;
@@ -119,7 +119,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should forward funds to wallet after purchase in the uncapped phase', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      
+
       var amount = ether(1);
       const prePurchaseBalance = web3.eth.getBalance(wallet);
       await this.crowdsale.buyTokens(investor1, { value: amount }).should.be.fulfilled;
@@ -130,8 +130,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
       //buy out first 2 capped phases
       await increaseTimeTo(this.openingTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor1, { value: ether(11000) }).should.be.fulfilled;
-      
-      const prePurchaseInvestorBalance = web3.eth.getBalance(investor1);      
+
+      const prePurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //send 100eth more than the cap of 3rd phase
       await this.crowdsale.buyTokens(investor1, { value: ether(5600), gasPrice: 0 }).should.be.fulfilled;
       const postPurchaseInvestorBalance = web3.eth.getBalance(investor1);
@@ -140,8 +140,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should return funds to investor when too much eth was sent in the uncapped phase', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      
-      const prePurchaseInvestorBalance = web3.eth.getBalance(investor1);      
+
+      const prePurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //send 100eth more than the total ico cap
       await this.crowdsale.buyTokens(investor1, { value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
       const postPurchaseInvestorBalance = web3.eth.getBalance(investor1);
@@ -226,7 +226,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let investorBalance = await this.token.balanceOf(investor);
+      let investorBalance = await this.token.balanceOf(investor1);
       let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
       let totalBalance = investorBalance.plus(lockupBalance);
       totalBalance.should.be.bignumber.equal(totalIcoCap);
@@ -250,7 +250,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should not allow to be released before cliff', async function () {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(10) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
 
@@ -259,13 +259,13 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should allow to be released after cliff', async function () {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor, { value: ether(10) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
 
       await this.token.unpause({ from: wallet });
       await increaseTimeTo(this.closingTime + vestingCliff + duration.weeks(1));
       await this.vestingToken.release(this.token.address).should.be.fulfilled;
-    });  
+    });
   });
 });
