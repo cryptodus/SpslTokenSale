@@ -7,9 +7,8 @@ import "./Token.sol";
 contract TeamTokenHolder is TokenVesting {
     using SafeMath for uint256;
 
-    function TeamTokenHolder(address _owner, address _beneficiary, uint256 _start, uint256 _cliff, uint256 _duration) public 
-        TokenVesting(_beneficiary, _start, _cliff, duration, true)
+    constructor(address _beneficiary, uint256 _start, uint256 _cliff, uint256 _duration) public 
+        TokenVesting(_beneficiary, _start, _cliff, _duration, false)
     {
-        owner = _owner;
     }
 }

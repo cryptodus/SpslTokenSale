@@ -18,8 +18,6 @@ const TeamTokenHolder = artifacts.require("./TeamTokenHolder");
 contract('TokenCrowdsaleTest', function (accounts) {
   let investor1 = accounts[0];
   let wallet = accounts[1];
-  // should create tokenVesting wallet for the lockup
-  let lockupWallet = accounts[2];
   let foundation = accounts[3];
   let investor2 = accounts[5];
   let founder = accounts[6];
@@ -49,9 +47,10 @@ contract('TokenCrowdsaleTest', function (accounts) {
     this.closingTime = this.openingTime + duration.days(60);
     this.uncappedOpeningTime = this.openingTime + duration.days(15);
     this.token = await Token.new();
+    this.vestingToken = await TeamTokenHolder.new(foundation, this.closingTime, vestingCliff, vestingDuration);
     this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, uncappedPhaseRate,
       rates, caps, this.openingTime, this.closingTime, this.uncappedOpeningTime,
-      foundation, foundationPercentage, lockupWallet, presaleWallet);
+      foundation, foundationPercentage, this.vestingToken.address, presaleWallet);
     await this.token.transferOwnership(this.crowdsale.address);
   });
 
@@ -219,7 +218,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.buyTokens(investor1, { value: ether(70000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let lockupBalance = await this.token.balanceOf(lockupWallet);
+      let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
       lockupBalance.should.be.bignumber.equal(0);
     });
     it('should assign leftover tokens to lockup when some tokens where sold', async function() {
@@ -227,15 +226,15 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let investorBalance = await this.token.balanceOf(investor1);
-      let lockupBalance = await this.token.balanceOf(lockupWallet);
+      let investorBalance = await this.token.balanceOf(investor);
+      let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
       let totalBalance = investorBalance.plus(lockupBalance);
       totalBalance.should.be.bignumber.equal(totalIcoCap);
     });
     it('should assign all ico tokens to lockup when no tokens where sold', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let lockupBalance = await this.token.balanceOf(lockupWallet);
+      let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
       lockupBalance.should.be.bignumber.equal(totalIcoCap);
     });
     it('should not allow finalize when finalized', async function() {
@@ -243,5 +242,30 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.finalize().should.be.fulfilled;
       await this.crowdsale.finalize().should.be.rejectedWith(EVMRevert);
     });
+  });
+
+  describe('token vesting', function() {
+    it('should not allow to revoke vesting token', async function() {
+      await this.vestingToken.revoke(this.token.address, { from: wallet }).should.be.rejectedWith(EVMRevert);
+    });
+    it('should not allow to be released before cliff', async function () {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(10) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.finalize();
+
+      await this.token.unpause({ from: wallet });
+      await this.vestingToken.release(this.token.address).should.be.rejectedWith(EVMRevert);
+    });
+    it('should allow to be released after cliff', async function () {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor, { value: ether(10) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.finalize();
+
+      await this.token.unpause({ from: wallet });
+      await increaseTimeTo(this.closingTime + vestingCliff + duration.weeks(1));
+      await this.vestingToken.release(this.token.address).should.be.fulfilled;
+    });  
   });
 });
