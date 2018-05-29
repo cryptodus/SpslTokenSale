@@ -2,7 +2,7 @@ pragma solidity ^0.4.23;
 
 import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
-import './Token.sol';
+import "./Token.sol";
 
 contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   using SafeMath for uint256;

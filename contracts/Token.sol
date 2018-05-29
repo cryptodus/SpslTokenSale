@@ -1,7 +1,7 @@
 pragma solidity ^0.4.23;
 
-import 'openzeppelin-solidity/contracts/token/ERC20/CappedToken.sol';
-import 'openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol';
+import "openzeppelin-solidity/contracts/token/ERC20/CappedToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
 
 /*
   Token is PausableToken and on the creation it is paused.
