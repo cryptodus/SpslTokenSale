@@ -1,10 +1,12 @@
 pragma solidity ^0.4.23;
 
 import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowdsale.sol";
+import "openzeppelin-solidity/contracts/crowdsale/distribution/PostDeliveryCrowdsale.sol";
+import "openzeppelin-solidity/contracts/crowdsale/distribution/utils/RefundVault.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 import "./Token.sol";
 
-contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
+contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCrowdsale {
   using SafeMath for uint256;
 
   uint256 public constant PRIVATE_SALE_CAP = 140 * 10**24;
@@ -23,12 +25,20 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   // Saving wei that is returned for last phase purchasers
   uint256 public overflowWei;
 
-  address foundationWallet;
-  uint256 foundationPercentage;
+  // Calculating how much tokens were already issued
+  uint256 public tokensIssued;
 
-  address lockupWallet;
+  // refund vault used to hold funds while crowdsale is running
+  RefundVault public vault;
 
-  address privatePresaleWallet;
+  address[] public investors;
+
+  address public foundationWallet;
+  uint256 public foundationPercentage;
+
+  address public lockupWallet;
+
+  address public privatePresaleWallet;
 
   constructor(
       Token _token,
@@ -69,13 +79,15 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
      lockupWallet = _lockupWallet;
      capedStageFinalCap = _capsTo[_capsTo.length.sub(1)];
      privatePresaleWallet = _privatePresaleWallet;
+     tokensIssued = token.totalSupply();
+     vault = new RefundVault(_wallet);
   }
 
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
     super._preValidatePurchase(_beneficiary, _weiAmount);
-    require(token.totalSupply() < ICO_SALE_CAP);
+    require(tokensIssued < ICO_SALE_CAP);
     if (block.timestamp <= uncappedOpeningTime) {
-      require(capedStageFinalCap > token.totalSupply());
+      require(capedStageFinalCap > tokensIssued);
     }
   }
 
@@ -105,7 +117,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     uint256 _weiSpent = 0;
     uint256 _weiAmount = msg.value;
 
-    uint256 _currentSupply = token.totalSupply();
+    uint256 _currentSupply = tokensIssued;
     uint256 _tokensForRate = 0;
     uint256 _weiReq = 0;
 
@@ -124,11 +136,12 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
       _weiSpent = _weiSpent.add(_weiReq);
       _weiAmount = _weiAmount.sub(_weiReq);
       _tokenAmount = _tokenAmount.add(_tokensForRate);
-      _currentSupply = token.totalSupply().add(_tokenAmount);
+      _currentSupply = tokensIssued.add(_tokenAmount);
       _rateIndex = _rateIndex.add(1);
     }
 
     super._processPurchase(_beneficiary, _tokenAmount);
+    tokensIssued = tokensIssued.add(_tokenAmount);
     _processFundsOverflow(_beneficiary, _weiSpent);
   }
 
@@ -137,11 +150,12 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     sent more ethers than there are tokens to purchase.
   */
   function _processUncappedPurchase(address _beneficiary, uint256 _tokenAmount) internal {
-    uint256 _currentSupply = token.totalSupply();
+    uint256 _currentSupply = tokensIssued;
     if (_currentSupply.add(_tokenAmount) > ICO_SALE_CAP) {
       _tokenAmount = ICO_SALE_CAP.sub(_currentSupply);
     }
     super._processPurchase(_beneficiary, _tokenAmount);
+    tokensIssued = tokensIssued.add(_tokenAmount);
     uint256 _weiAmount = _tokenAmount.div(rate);
     _processFundsOverflow(_beneficiary, _weiAmount);
   }
@@ -180,8 +194,32 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     Method open-zeppelin override, we need to sub if any wei was returned
   */
   function _forwardFunds() internal {
-    wallet.transfer(msg.value.sub(overflowWei));
+    uint256 valueToDeposit = msg.value.sub(overflowWei);
+    vault.deposit.value(valueToDeposit)(msg.sender);
+    investors.push(msg.sender);
     overflowWei = 0;
+  }
+
+  /*
+    OpenZeppelin PostDeliveryCrowdsale override - forbid users to withdraw
+    tokens themselves
+  */
+  function withdrawTokens() public {
+    revert();
+  }
+
+  /*
+    Method for forwarding tokens for investors that are provided only
+  */
+  function forwardTokens(address[] _investors) public onlyOwner {
+    require(hasClosed());
+    for (uint i = 0; i < _investors.length; i = i.add(1)) {
+      address _investor = _investors[i];
+      uint256 _amount = balances[_investor];
+      require(_amount > 0);
+      balances[_investor] = 0;
+      _deliverTokens(_investor, _amount);
+    }
   }
 
   /*
@@ -190,6 +228,17 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
   */
   function finalization() internal {
     Token _token = Token(token);
+
+    for (uint i = 0; i < investors.length; i = i.add(1)) {
+      address _investor = investors[i];
+      uint256 _amount = balances[_investor];
+      if (_amount > 0) {
+        vault.refund(_investor);
+        balances[_investor] = 0;
+      }
+    }
+
+    vault.close();
 
     require(_token.mint(privatePresaleWallet, PRIVATE_SALE_CAP));
 
@@ -209,7 +258,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale {
     OpenZeppelin TimedCrowdsale method override - checks whether the crowdsale is over
   */
   function hasClosed() public view returns (bool) {
-    bool _soldOut = token.totalSupply() >= ICO_SALE_CAP;
+    bool _soldOut = tokensIssued >= ICO_SALE_CAP;
     return super.hasClosed() || _soldOut;
   }
 }
