@@ -2,9 +2,9 @@ pragma solidity ^0.4.23;
 
 import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/distribution/PostDeliveryCrowdsale.sol";
-import "openzeppelin-solidity/contracts/crowdsale/distribution/utils/RefundVault.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 import "./Token.sol";
+import "./Vault.sol";
 
 contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCrowdsale {
   using SafeMath for uint256;
@@ -29,7 +29,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   uint256 public tokensIssued;
 
   // refund vault used to hold funds while crowdsale is running
-  RefundVault public vault;
+  Vault public vault;
 
   address[] public investors;
 
@@ -80,7 +80,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
      capedStageFinalCap = _capsTo[_capsTo.length.sub(1)];
      privatePresaleWallet = _privatePresaleWallet;
      tokensIssued = token.totalSupply();
-     vault = new RefundVault(_wallet);
+     vault = new Vault(_wallet);
   }
 
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
@@ -229,6 +229,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   function finalization() internal {
     Token _token = Token(token);
 
+    vault.enableRefunds();
     for (uint i = 0; i < investors.length; i = i.add(1)) {
       address _investor = investors[i];
       uint256 _amount = balances[_investor];
@@ -237,7 +238,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
         balances[_investor] = 0;
       }
     }
-
+    vault.disableRefunds();
     vault.close();
 
     require(_token.mint(privatePresaleWallet, PRIVATE_SALE_CAP));
