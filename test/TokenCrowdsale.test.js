@@ -22,6 +22,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let investor2 = accounts[5];
   let founder = accounts[6];
   let presaleWallet = accounts[7];
+  let investor3 = accounts[8];
+  let investor4 = accounts[9];
 
   let uncappedPhaseRate = 10000;
   let caps = [71500e21, 137500e21, 198000e21];
@@ -57,34 +59,34 @@ contract('TokenCrowdsaleTest', function (accounts) {
   describe('purchasing tokens', function() {
     it('should not accept payments before opening time', async function() {
       await increaseTimeTo(latestTime());
-      await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.rejectedWith(EVMRevert);
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.rejectedWith(EVMRevert);
     });
     it('should accept payments during crowdsale', async function() {
        await increaseTimeTo(this.openingTime + duration.weeks(1));
-       await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.fulfilled;
+       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
     });
     it('should not allow buy tokens if all capped are bought and uncapped phase not started yet', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(20000) }).should.be.fulfilled;
-      await this.crowdsale.buyTokens(founder, { value: ether(1) }).should.be.rejectedWith(EVMRevert);
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(20000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(founder, {from: founder, value: ether(1) }).should.be.rejectedWith(EVMRevert);
     });
     it('should allow buy tokens if all capped are bought and uncapped phase started', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(20000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(20000) }).should.be.fulfilled;
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(founder, { value: ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(founder, {from: founder, value: ether(1) }).should.be.fulfilled;
     });
     it('should allow buy tokens if no tokens bought and uncapped phase started', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(founder, { value: ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(founder, {from: investor1, value: ether(1) }).should.be.fulfilled;
     });
     it('should not accept payments after closing time', async function() {
        await increaseTimeTo(this.closingTime + duration.weeks(1));
-       await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.rejectedWith(EVMRevert);
+       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.rejectedWith(EVMRevert);
     });
     it('should assign correct amount of tokens in the capped first phase', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
       let assignedBalance = await this.crowdsale.balances(investor1);
       let balance = await this.token.balanceOf(investor1);
       assignedBalance.should.be.bignumber.equal(rates[0]*1e18);
@@ -92,8 +94,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should buy correct amount of tokens in the capped second phase', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor2, { value: ether(5500) }).should.be.fulfilled;
-      await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor2, {from: investor2, value: ether(5500) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
       let assignedBalance = await this.crowdsale.balances(investor1);
       let balance = await this.token.balanceOf(investor1);
       assignedBalance.should.be.bignumber.equal(rates[1]*1e18);
@@ -101,8 +103,8 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should buy correct amount of tokens in the capped third phase', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor2, { value: ether(11000) }).should.be.fulfilled;
-      await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor2, {from: investor2, value: ether(11000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
       let assignedBalance = await this.crowdsale.balances(investor1);
       let balance = await this.token.balanceOf(investor1);
       assignedBalance.should.be.bignumber.equal(rates[2]*1e18);
@@ -110,7 +112,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should buy correct amount of tokens in the uncapped phase', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
       let assignedBalance = await this.crowdsale.balances(investor1);
       let balance = await this.token.balanceOf(investor1);
       assignedBalance.should.be.bignumber.equal(uncappedPhaseRate* 1e18);
@@ -121,7 +123,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
 
       var amount = ether(1);
       const prePurchaseBalance = web3.eth.getBalance(wallet);
-      await this.crowdsale.buyTokens(investor1, { value: amount }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: amount }).should.be.fulfilled;
       const postPurchaseBalance = web3.eth.getBalance(wallet);
       postPurchaseBalance.should.be.bignumber.equal(prePurchaseBalance);
     });
@@ -130,18 +132,18 @@ contract('TokenCrowdsaleTest', function (accounts) {
 
       var amount = ether(1);
       const prePurchaseBalance = web3.eth.getBalance(wallet);
-      await this.crowdsale.buyTokens(investor1, { value: amount }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: amount }).should.be.fulfilled;
       const postPurchaseBalance = web3.eth.getBalance(wallet);
       postPurchaseBalance.should.be.bignumber.equal(prePurchaseBalance);
     });
     it('should return funds to investor when too much eth was sent in the last capped phase', async function() {
       //buy out first 2 capped phases
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(11000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(11000) }).should.be.fulfilled;
 
       const prePurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //send 100eth more than the cap of 3rd phase
-      await this.crowdsale.buyTokens(investor1, { value: ether(5600), gasPrice: 0 }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(5600), gasPrice: 0 }).should.be.fulfilled;
       const postPurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //should return 100eth to investor
       web3.fromWei(prePurchaseInvestorBalance.minus(postPurchaseInvestorBalance)).should.be.bignumber.equal(5500);
@@ -151,14 +153,82 @@ contract('TokenCrowdsaleTest', function (accounts) {
 
       const prePurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //send 100eth more than the total ico cap
-      await this.crowdsale.buyTokens(investor1, { value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
       const postPurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //should return 100eth to investor
       web3.fromWei(prePurchaseInvestorBalance.minus(postPurchaseInvestorBalance)).should.be.bignumber.equal(44800);
     });
+    it('should not mint any tokens while purchasing in capped phase', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
+      let totalSupply = await this.token.totalSupply();
+      totalSupply.should.be.bignumber.equal(0);
+    });
+    it('should not mint any tokens while purchasing in uncapped phase', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
+      let totalSupply = await this.token.totalSupply();
+      totalSupply.should.be.bignumber.equal(0);
+    });
   });
 
-  //TODO: add if any prepwork needed
+  describe('forwarding tokens', function() {
+    it('should not allow withdraw tokens ever', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      await this.crowdsale.withdrawTokens().should.be.rejectedWith(EVMRevert);
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.withdrawTokens().should.be.rejectedWith(EVMRevert);
+    });
+    it('should not allow forward tokens before closing time and tokens not sold', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor1]).should.be.rejectedWith(EVMRevert);
+    });
+    it('should allow forward tokens after closing time and tokens not sold', async function() {
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+    });
+    it('should allow forward tokens before closing time and tokens are sold', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44800) }).should.be.fulfilled;
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+    });
+    it('should forward tokens when bought and whitelisted', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+      let assignedBalance = await this.crowdsale.balances(investor1);
+      let balance = await this.token.balanceOf(investor1);
+      balance.should.be.bignumber.equal(uncappedPhaseRate* 1e18);
+      assignedBalance.should.be.bignumber.equal(0);
+    });
+    it('should not forward same tokens twice when bought and whitelisted', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(1) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+      let assignedBalance = await this.crowdsale.balances(investor1);
+      let balance = await this.token.balanceOf(investor1);
+      balance.should.be.bignumber.equal(uncappedPhaseRate* 1e18);
+      assignedBalance.should.be.bignumber.equal(0);
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+      let assignedBalance1 = await this.crowdsale.balances(investor1);
+      let balance1 = await this.token.balanceOf(investor1);
+      balance1.should.be.bignumber.equal(uncappedPhaseRate* 1e18);
+      assignedBalance1.should.be.bignumber.equal(0);
+    });
+    it('should not forward tokens when bought and not whitelisted', async function() {
+      await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
+      await this.crowdsale.buyTokens(investor2, {from: investor2, value: ether(1) }).should.be.fulfilled;
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+      let assignedBalance = await this.crowdsale.balances(investor2);
+      let balance = await this.token.balanceOf(investor2);
+      assignedBalance.should.be.bignumber.equal(uncappedPhaseRate* 1e18);
+      balance.should.be.bignumber.equal(0);
+    });
+  });
+
   describe('finalization and tokens distribution', function() {
     it('should not allow finalize before closing time and tokens not sold', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
@@ -170,7 +240,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should allow finalize before closing time and tokens are sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(44800) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44800) }).should.be.fulfilled;
       await this.crowdsale.finalize().should.be.fulfilled;
     });
     it('should transfer ownership when finallized', async function () {
@@ -195,7 +265,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should assign correct ammount of tokens to foundation when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(50000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(50000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
       let foundationBalance = await this.token.balanceOf(foundation);
@@ -213,7 +283,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should assign correct ammount of tokens to private presale wallet when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(50000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(50000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
       let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
@@ -223,7 +293,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should not assign any tokens to lockup when all tokens where sold', async function() {
       await increaseTimeTo(this.uncappedOpeningTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(70000) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(70000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.forwardTokens([investor1]);
       await this.crowdsale.finalize();
@@ -232,7 +302,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should assign leftover tokens to lockup when some tokens where sold', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
       let investorBalance = await this.token.balanceOf(investor1);
@@ -251,6 +321,59 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.finalize().should.be.fulfilled;
       await this.crowdsale.finalize().should.be.rejectedWith(EVMRevert);
     });
+    it('should forward funds to wallet when whitelisted and finalized', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      const prePurchaseBalance = web3.eth.getBalance(wallet);
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value:  ether(1) }).should.be.fulfilled;
+      const postPurchaseBalance = web3.eth.getBalance(wallet);
+      postPurchaseBalance.should.be.bignumber.equal(prePurchaseBalance);
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor1]).should.be.fulfilled;
+      await this.crowdsale.finalize().should.be.fulfilled;
+      const postFinalizeBalance = web3.eth.getBalance(wallet);
+      postFinalizeBalance.minus(postPurchaseBalance).should.be.bignumber.equal(ether(1));
+    });
+    it('should not receive any funds to wallet when not whitelisted and finalized', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      const prePurchaseBalance = web3.eth.getBalance(wallet);
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value:  ether(1) }).should.be.fulfilled;
+      const postPurchaseBalance = web3.eth.getBalance(wallet);
+      postPurchaseBalance.should.be.bignumber.equal(prePurchaseBalance);
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor2]).should.be.fulfilled;
+      await this.crowdsale.finalize().should.be.fulfilled;
+      const postFinalizeBalance = web3.eth.getBalance(wallet);
+      postFinalizeBalance.minus(postPurchaseBalance).should.be.bignumber.equal(ether(0));
+    });
+    it('should return funds to investor when not whitelisted and finalized', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      const prePurchaseBalance = await web3.eth.getBalance(investor3);
+      await this.crowdsale.buyTokens(investor3, {from: investor3, value:  ether(1) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor4, {from: investor4, value:  ether(1) }).should.be.fulfilled;
+      const postPurchaseBalance = await web3.eth.getBalance(investor3);
+      postPurchaseBalance.should.be.bignumber.gt(prePurchaseBalance.minus(ether(1.1)));
+      postPurchaseBalance.should.be.bignumber.lt(prePurchaseBalance.minus(ether(1.0)));
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor4]).should.be.fulfilled;
+      await this.crowdsale.finalize().should.be.fulfilled;
+      const postFinalizeBalance = await web3.eth.getBalance(investor3);
+      postFinalizeBalance.should.be.bignumber.gt(prePurchaseBalance.minus(ether(0.1)));
+      postFinalizeBalance.should.be.bignumber.lt(prePurchaseBalance);
+    });
+    it('should not return funds to investor when whitelisted and finalized', async function() {
+      await increaseTimeTo(this.openingTime + duration.weeks(1));
+      const prePurchaseBalance = await web3.eth.getBalance(investor3);
+      await this.crowdsale.buyTokens(investor3, {from: investor3, value:  ether(1) }).should.be.fulfilled;
+      const postPurchaseBalance = await web3.eth.getBalance(investor3);
+      postPurchaseBalance.should.be.bignumber.gt(prePurchaseBalance.minus(ether(1.1)));
+      postPurchaseBalance.should.be.bignumber.lt(prePurchaseBalance.minus(ether(1.0)));
+      await increaseTimeTo(this.closingTime + duration.weeks(1));
+      await this.crowdsale.forwardTokens([investor3]).should.be.fulfilled;
+      await this.crowdsale.finalize().should.be.fulfilled;
+      const postFinalizeBalance = await web3.eth.getBalance(investor3);
+      postPurchaseBalance.should.be.bignumber.gt(prePurchaseBalance.minus(ether(1.1)));
+      postPurchaseBalance.should.be.bignumber.lt(prePurchaseBalance.minus(ether(1.0)));
+    });
   });
 
   describe('token vesting', function() {
@@ -259,7 +382,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should not allow to be released before cliff', async function () {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
 
@@ -268,7 +391,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     });
     it('should allow to be released after cliff', async function () {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
-      await this.crowdsale.buyTokens(investor1, { value: ether(10) }).should.be.fulfilled;
+      await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(10) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
 

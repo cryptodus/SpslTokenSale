@@ -31,13 +31,19 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // refund vault used to hold funds while crowdsale is running
   Vault public vault;
 
+  // list of all the investors
   address[] public investors;
 
+  // wallet that will hold fundation tokens
   address public foundationWallet;
+
+  // percetage of tokens to be forwarded to fundation wallet
   uint256 public foundationPercentage;
 
+  // wallet for the leftover tokens to be locked up
   address public lockupWallet;
 
+  // wallet that will hold private pre sale tokens
   address public privatePresaleWallet;
 
   constructor(
@@ -83,6 +89,11 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
      vault = new Vault(_wallet);
   }
 
+  /*
+    OpenZeppelin method override for additional pre purchase validation.
+    Checks wheather capped/uncapped stages are running and if not all tokens
+    are sold
+  */
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
     super._preValidatePurchase(_beneficiary, _weiAmount);
     require(tokensIssued < ICO_SALE_CAP);
@@ -216,15 +227,17 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     for (uint i = 0; i < _investors.length; i = i.add(1)) {
       address _investor = _investors[i];
       uint256 _amount = balances[_investor];
-      require(_amount > 0);
-      balances[_investor] = 0;
-      _deliverTokens(_investor, _amount);
+      if (_amount > 0) {
+        balances[_investor] = 0;
+        _deliverTokens(_investor, _amount);
+      }
     }
   }
 
   /*
    OpenZeppelin FinalizableCrowdsale method override - token distribution
-   and finishing routines
+   and finishing routines. Also refund all the none whitelisted _investors
+   and close the vault
   */
   function finalization() internal {
     Token _token = Token(token);
