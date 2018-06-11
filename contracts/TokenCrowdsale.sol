@@ -12,15 +12,15 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   uint256 public constant PRIVATE_SALE_CAP = 140 * 10**24;
   uint256 public constant ICO_SALE_CAP = 448 * 10**24;
 
-  // Should not be able to buy more tokens in capped stage than this amount
-  uint256 public capedStageFinalCap;
+  // Should not be able to buy more tokens in presale than this amount
+  uint256 public presaleCap;
 
-  // While tokens are sold in the capped state their rate is calculated based on these
-  uint256[] public rates;
-  uint256[] public capsTo;
+  // While tokens are sold in the presale their rate is calculated based on these
+  uint256[] public presaleRates;
+  uint256[] public presaleCaps;
 
-  // Date when uncapped  starts
-  uint256 public uncappedOpeningTime;
+  // Date when sale starts
+  uint256 public saleOpeningTime;
 
   // Saving wei that is returned for last phase purchasers
   uint256 public overflowWei;
@@ -49,41 +49,41 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   constructor(
       Token _token,
       address _wallet,
-      uint256 _uncappedRate,
-      uint256[] _rates,
-      uint256[] _capsTo,
+      uint256 _saleRate,
+      uint256[] _presaleRates,
+      uint256[] _presaleCaps,
       uint256 _openingTime,
       uint256 _closingTime,
-      uint256 _uncappedOpeningTime,
+      uint256 _saleOpeningTime,
       address _foundationWallet,
       uint256 _foundationPercentage,
       address _lockupWallet,
       address _privatePresaleWallet
   )
       public
-      Crowdsale(_uncappedRate, _wallet, _token)
+      Crowdsale(_saleRate, _wallet, _token)
       TimedCrowdsale(_openingTime, _closingTime)
   {
      require(_lockupWallet != address(0));
      require(_privatePresaleWallet != address(0));
      require(_foundationWallet != address(0));
 
-     require(_rates.length > 0);
-     require(_rates.length == _capsTo.length);
+     require(_presaleRates.length > 0);
+     require(_presaleRates.length == _presaleCaps.length);
 
-     require(_uncappedOpeningTime <= _closingTime);
-     require(_uncappedOpeningTime >= _openingTime);
+     require(_saleOpeningTime <= _closingTime);
+     require(_saleOpeningTime >= _openingTime);
 
      require(_foundationPercentage <= 100);
      require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(_token.cap()) == uint256(100).sub(_foundationPercentage));
 
-     rates = _rates;
-     capsTo = _capsTo;
-     uncappedOpeningTime = _uncappedOpeningTime;
+     presaleRates = _presaleRates;
+     presaleCaps = _presaleCaps;
+     saleOpeningTime = _saleOpeningTime;
      foundationWallet = _foundationWallet;
      foundationPercentage = _foundationPercentage;
      lockupWallet = _lockupWallet;
-     capedStageFinalCap = _capsTo[_capsTo.length.sub(1)];
+     presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
      privatePresaleWallet = _privatePresaleWallet;
      tokensIssued = token.totalSupply();
      vault = new Vault(_wallet);
@@ -91,38 +91,38 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
 
   /*
     OpenZeppelin method override for additional pre purchase validation.
-    Checks wheather capped/uncapped stages are running and if not all tokens
+    Checks wheather sale/presale stages are running and if not all tokens
     are sold
   */
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
     super._preValidatePurchase(_beneficiary, _weiAmount);
     require(tokensIssued < ICO_SALE_CAP);
-    if (block.timestamp <= uncappedOpeningTime) {
-      require(capedStageFinalCap > tokensIssued);
+    if (block.timestamp <= saleOpeningTime) {
+      require(presaleCap > tokensIssued);
     }
   }
 
   /*
-    pruchasing happens in two stages capped and uncapped.
-    Capped stage happens first and price is calculated based on already sold
-    tokens amount. Uncapped stage starts at certain date and lasts till the end
-    of sale. Uncapped stage has stable token price and is basically standard openzeppelin
+    Pruchasing happens in two stages presale and sale.
+    Presale stage happens first and price is calculated based on already sold
+    tokens amount. Sale stage starts at certain date and lasts till the end
+    of ico. Sale stage has stable token price and is basically standard openzeppelin
     token sale
   */
   function _processPurchase(address _beneficiary, uint256 _tokenAmount) internal {
-    if (block.timestamp >= uncappedOpeningTime) {
-      _processUncappedPurchase(_beneficiary, _tokenAmount);
+    if (block.timestamp >= saleOpeningTime) {
+      _processSalePurchase(_beneficiary, _tokenAmount);
     } else {
-      _processCappedPurchase(_beneficiary);
+      _processPresalePurchase(_beneficiary);
     }
   }
 
   /*
-    Method handles capped sale purchase. Token amount is calculated depending
+    Method handles presale purchase. Token amount is calculated depending
     on amount of tokens already sold.
   */
-  function _processCappedPurchase(address _beneficiary) internal {
-    require(block.timestamp < uncappedOpeningTime);
+  function _processPresalePurchase(address _beneficiary) internal {
+    require(block.timestamp < saleOpeningTime);
 
     uint256 _tokenAmount = 0;
     uint256 _weiSpent = 0;
@@ -135,12 +135,12 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     uint256 _rateIndex = _getRateIndex(_currentSupply);
 
     // while we can purchase all tokens in current cap-rate step, move to other step
-    while (_weiAmount > 0 && _rateIndex < rates.length) {
-      _tokensForRate = capsTo[_rateIndex].sub(_currentSupply);
-      _weiReq = _tokensForRate.div(rates[_rateIndex]);
+    while (_weiAmount > 0 && _rateIndex < presaleRates.length) {
+      _tokensForRate = presaleCaps[_rateIndex].sub(_currentSupply);
+      _weiReq = _tokensForRate.div(presaleRates[_rateIndex]);
       if (_weiReq > _weiAmount) {
         // if wei required is more or equal than we have - we can purchase only part of the cap-rate step tokens
-         _tokensForRate = _weiAmount.mul(rates[_rateIndex]);
+         _tokensForRate = _weiAmount.mul(presaleRates[_rateIndex]);
          _weiReq = _weiAmount;
       }
 
@@ -157,10 +157,10 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   }
 
   /*
-    Method handles uncapped state purchase. It is needed to check if beneficiary
+    Method handles sale purchases. It is needed to check if beneficiary
     sent more ethers than there are tokens to purchase.
   */
-  function _processUncappedPurchase(address _beneficiary, uint256 _tokenAmount) internal {
+  function _processSalePurchase(address _beneficiary, uint256 _tokenAmount) internal {
     uint256 _currentSupply = tokensIssued;
     if (_currentSupply.add(_tokenAmount) > ICO_SALE_CAP) {
       _tokenAmount = ICO_SALE_CAP.sub(_currentSupply);
@@ -186,14 +186,14 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   }
 
   /*
-    Method for retrieving rate and capTo for provided supply. It is used in capped
-    state were rate depends on sold tokens amount
+    Method for retrieving rate and capTo for provided supply. It is used in presale
+    were rate depends on sold tokens amount
   */
   function _getRateIndex(uint256 _supply) internal view returns(uint256) {
-    require(capedStageFinalCap > _supply);
+    require(presaleCap > _supply);
     uint256 _i = 0;
-    while(_i < capsTo.length) {
-      if (capsTo[_i] > _supply) {
+    while(_i < presaleCaps.length) {
+      if (presaleCaps[_i] > _supply) {
         return _i;
       }
       _i = _i.add(1);
