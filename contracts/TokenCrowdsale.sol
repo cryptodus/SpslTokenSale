@@ -43,50 +43,50 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // wallet for the leftover tokens to be locked up
   address public lockupWallet;
 
-  // wallet that will hold private pre sale tokens
-  address public privatePresaleWallet;
-
   constructor(
       Token _token,
       address _wallet,
       uint256 _saleRate,
-      uint256[] _presaleRates,
-      uint256[] _presaleCaps,
       uint256 _openingTime,
       uint256 _closingTime,
-      uint256 _saleOpeningTime,
-      address _foundationWallet,
-      uint256 _foundationPercentage,
-      address _lockupWallet,
-      address _privatePresaleWallet
+      Vault vaultAddress
   )
       public
       Crowdsale(_saleRate, _wallet, _token)
       TimedCrowdsale(_openingTime, _closingTime)
   {
-     require(_lockupWallet != address(0));
-     require(_privatePresaleWallet != address(0));
-     require(_foundationWallet != address(0));
-
-     require(_presaleRates.length > 0);
-     require(_presaleRates.length == _presaleCaps.length);
-
-     require(_saleOpeningTime <= _closingTime);
-     require(_saleOpeningTime >= _openingTime);
-
-     require(_foundationPercentage <= 100);
-     require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(_token.cap()) == uint256(100).sub(_foundationPercentage));
-
-     presaleRates = _presaleRates;
-     presaleCaps = _presaleCaps;
-     saleOpeningTime = _saleOpeningTime;
-     foundationWallet = _foundationWallet;
-     foundationPercentage = _foundationPercentage;
-     lockupWallet = _lockupWallet;
-     presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
-     privatePresaleWallet = _privatePresaleWallet;
      tokensIssued = token.totalSupply();
-     vault = new Vault(_wallet);
+     vault = vaultAddress;
+  }
+
+  function initialize (
+    uint256[] _presaleRates,
+    uint256[] _presaleCaps,
+    uint256 _saleOpeningTime,
+    address _foundationWallet,
+    uint256 _foundationPercentage,
+    address _lockupWallet
+  ) onlyOwner
+  {
+    require(saleOpeningTime == 0);
+    require(_lockupWallet != address(0));
+    require(_foundationWallet != address(0));
+
+    require(_presaleRates.length > 0);
+    require(_presaleRates.length == _presaleCaps.length);
+    require(_saleOpeningTime <= closingTime);
+    require(_saleOpeningTime >= openingTime);
+
+    require(_foundationPercentage <= 100);
+    require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(Token(token).cap()) == uint256(100).sub(_foundationPercentage));
+
+    presaleRates = _presaleRates;
+    presaleCaps = _presaleCaps;
+    saleOpeningTime = _saleOpeningTime;
+    foundationWallet = _foundationWallet;
+    foundationPercentage = _foundationPercentage;
+    lockupWallet = _lockupWallet;
+    presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
   }
 
   /*
@@ -253,8 +253,6 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     }
     vault.disableRefunds();
     vault.close();
-
-    require(_token.mint(privatePresaleWallet, PRIVATE_SALE_CAP));
 
     uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
     require(_token.mint(foundationWallet, _foundationTokens));
