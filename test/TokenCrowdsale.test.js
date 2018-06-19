@@ -14,6 +14,8 @@ const should = require('chai')
 const Token = artifacts.require("./Token")
 const TokenCrowdsale = artifacts.require("./TokenCrowdsale");
 const TeamTokenHolder = artifacts.require("./TeamTokenHolder");
+const Vault = artifacts.require("./Vault");
+
 
 contract('TokenCrowdsaleTest', function (accounts) {
   let investor1 = accounts[0];
@@ -26,12 +28,12 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let investor4 = accounts[9];
 
   let salePhaseRate = 10000;
-  let presaleCaps = [71500e21, 137500e21, 198000e21];
+  let presaleCaps = [211500e21, 277500e21, 338000e21];
   let presaleRates = [13000, 12000, 11000];
   let totalIcoCap = 448e24;
   let foundationPercentage = 40;
   let icoPercentage = 60;
-  let presaleCap = 140e24;
+  let privatePresaleCap = 140000e21;
 
   let vestingCliff = duration.years(1);
   let vestingDuration = duration.years(5);
@@ -45,14 +47,18 @@ contract('TokenCrowdsaleTest', function (accounts) {
   // For sale 25000 ether to buy all phase
   // Total 41500 ether
   beforeEach(async function () {
+    this.vault = await Vault.new(wallet);
     this.openingTime = latestTime() + duration.weeks(1);
     this.closingTime = this.openingTime + duration.days(60);
     this.saleOpeningTime = this.openingTime + duration.days(15);
     this.token = await Token.new();
+    await this.token.mint(presaleWallet, privatePresaleCap);
     this.vestingToken = await TeamTokenHolder.new(foundation, this.closingTime, vestingCliff, vestingDuration);
     this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, salePhaseRate,
-      presaleRates, presaleCaps, this.openingTime, this.closingTime, this.saleOpeningTime,
-      foundation, foundationPercentage, this.vestingToken.address, presaleWallet);
+      this.openingTime, this.closingTime, this.vault.address);
+    await this.crowdsale.initialize(presaleRates, presaleCaps, this.saleOpeningTime,
+      foundation, foundationPercentage, this.vestingToken.address);
+    await this.vault.transferOwnership(this.crowdsale.address);
     await this.token.transferOwnership(this.crowdsale.address);
   });
 
@@ -156,19 +162,19 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
       const postPurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //should return 100eth to investor
-      web3.fromWei(prePurchaseInvestorBalance.minus(postPurchaseInvestorBalance)).should.be.bignumber.equal(44800);
+      web3.fromWei(prePurchaseInvestorBalance.minus(postPurchaseInvestorBalance)).should.be.bignumber.equal(30800);
     });
     it('should not mint any tokens while purchasing during presale', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
       let totalSupply = await this.token.totalSupply();
-      totalSupply.should.be.bignumber.equal(0);
+      totalSupply.should.be.bignumber.equal(privatePresaleCap);
     });
     it('should not mint any tokens while purchasing during sale', async function() {
       await increaseTimeTo(this.saleOpeningTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
       let totalSupply = await this.token.totalSupply();
-      totalSupply.should.be.bignumber.equal(0);
+      totalSupply.should.be.bignumber.equal(privatePresaleCap);
     });
   });
 
@@ -278,7 +284,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.finalize();
       let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
       let tokenCap = await this.token.cap();
-      let expectedPresaleWalletBalance = presaleCap;
+      let expectedPresaleWalletBalance = privatePresaleCap;
       presaleWalletBalance.should.be.bignumber.equal(expectedPresaleWalletBalance);
     });
     it('should assign correct ammount of tokens to private presale wallet when all tokens where sold', async function() {
@@ -288,7 +294,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.finalize();
       let presaleWalletBalance = await this.token.balanceOf(presaleWallet);
       let tokenCap = await this.token.cap();
-      let expectedPresaleWalletBalance = presaleCap;
+      let expectedPresaleWalletBalance = privatePresaleCap;
       presaleWalletBalance.should.be.bignumber.equal(expectedPresaleWalletBalance);
     });
     it('should not assign any tokens to lockup when all tokens where sold', async function() {
@@ -298,7 +304,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.forwardTokens([investor1]);
       await this.crowdsale.finalize();
       let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
-      lockupBalance.should.be.bignumber.equal(0);
+      lockupBalance.should.be.bignumber.equal(privatePresaleCap);
     });
     it('should assign leftover tokens to lockup when some tokens where sold', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
