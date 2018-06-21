@@ -10,7 +10,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   using SafeMath for uint256;
 
   uint256 public constant PRIVATE_SALE_CAP = 140 * 10**24;
-  uint256 public constant ICO_SALE_CAP = 448 * 10**24;
+  uint256 public constant ICO_SALE_CAP = 488 * 10**24;
 
   // Should not be able to buy more tokens in presale than this amount
   uint256 public presaleCap;
