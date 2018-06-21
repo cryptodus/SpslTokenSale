@@ -34,11 +34,14 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // list of all the investors
   address[] public investors;
 
-  // wallet that will hold fundation tokens
-  address public foundationWallet;
+  // wallets that will hold team tokens
+  address[] public teamWallets;
+
+    // percentages that will go to team wallets
+  address[] public teamWaletsDistributionPercentage;
 
   // percetage of tokens to be forwarded to fundation wallet
-  uint256 public foundationPercentage;
+  uint256 public teamPercentage;
 
   // wallet for the leftover tokens to be locked up
   address public lockupWallet;
@@ -63,8 +66,9 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     uint256[] _presaleRates,
     uint256[] _presaleCaps,
     uint256 _saleOpeningTime,
-    address _foundationWallet,
-    uint256 _foundationPercentage,
+    uint256 _teamPercentage,
+    uint256[] _teamWallets,
+    uint256[] _teamWaletsDistributionPercentage,
     address _lockupWallet
   ) onlyOwner
   {
@@ -74,17 +78,19 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
 
     require(_presaleRates.length > 0);
     require(_presaleRates.length == _presaleCaps.length);
+    require(_teamWallets.length == _teamWaletsDistributionPercentage.length);
     require(_saleOpeningTime <= closingTime);
     require(_saleOpeningTime >= openingTime);
 
-    require(_foundationPercentage <= 100);
-    require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(Token(token).cap()) == uint256(100).sub(_foundationPercentage));
+    require(_teamPercentage <= 100);
+    require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(Token(token).cap()) == uint256(100).sub(_teamPercentage));
+
 
     presaleRates = _presaleRates;
     presaleCaps = _presaleCaps;
     saleOpeningTime = _saleOpeningTime;
     foundationWallet = _foundationWallet;
-    foundationPercentage = _foundationPercentage;
+    teamPercentage = _teamPercentage;
     lockupWallet = _lockupWallet;
     presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
   }
@@ -254,8 +260,13 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     vault.disableRefunds();
     vault.close();
 
-    uint256 _foundationTokens = _token.cap().mul(foundationPercentage).div(100);
-    require(_token.mint(foundationWallet, _foundationTokens));
+    uint256 _teamTokens = _token.cap().mul(teamPercentage).div(100);
+
+    for (uint i = 0; i < teamWallets.length; i = i.add(1)) {
+      address _teamWallet = teamWallets[i];
+      uint256 _percentage = _teamWaletsDistributionPercentage[i];
+      require(_token.mint(_teamWallet, _teamTokens.mul(_percentage).div(100)));
+    }
 
     uint256 _leftoverTokens = _token.cap().sub(_token.totalSupply());
     require(_token.mint(lockupWallet, _leftoverTokens));
