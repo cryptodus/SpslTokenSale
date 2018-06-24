@@ -4,7 +4,6 @@ import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowds
 import "openzeppelin-solidity/contracts/crowdsale/distribution/PostDeliveryCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/emission/MintedCrowdsale.sol";
 import "./Token.sol";
-import "./Vault.sol";
 
 contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCrowdsale {
   using SafeMath for uint256;
@@ -28,38 +27,39 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // Calculating how much tokens were already issued
   uint256 public tokensIssued;
 
-  // refund vault used to hold funds while crowdsale is running
-  Vault public vault;
-
-  // list of all the investors
-  address[] public investors;
-
   // wallets that will hold team tokens
   address[] public teamWallets;
 
     // percentages that will go to team wallets
-  address[] public teamWaletsDistributionPercentage;
+  uint256[] public teamWaletsDistributionPercentage;
 
-  // percetage of tokens to be forwarded to fundation wallet
+  // percetage of tokens to be forwarded to team wallet
   uint256 public teamPercentage;
 
   // wallet for the leftover tokens to be locked up
   address public lockupWallet;
+
+  // address that can distribute tokens for whitelisted investors
+  address public distributor;
+
+  // modifier for allowing only distributor call the method
+  modifier onlyDistributor {
+      require(msg.sender == distributor);
+      _;
+  }
 
   constructor(
       Token _token,
       address _wallet,
       uint256 _saleRate,
       uint256 _openingTime,
-      uint256 _closingTime,
-      Vault vaultAddress
+      uint256 _closingTime
   )
       public
       Crowdsale(_saleRate, _wallet, _token)
       TimedCrowdsale(_openingTime, _closingTime)
   {
      tokensIssued = token.totalSupply();
-     vault = vaultAddress;
   }
 
   function initialize (
@@ -69,12 +69,12 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     uint256 _teamPercentage,
     uint256[] _teamWallets,
     uint256[] _teamWaletsDistributionPercentage,
-    address _lockupWallet
-  ) onlyOwner
+    address _lockupWallet,
+    address _distributor
+  ) public onlyOwner
   {
     require(saleOpeningTime == 0);
     require(_lockupWallet != address(0));
-    require(_foundationWallet != address(0));
 
     require(_presaleRates.length > 0);
     require(_presaleRates.length == _presaleCaps.length);
@@ -83,16 +83,18 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     require(_saleOpeningTime >= openingTime);
 
     require(_teamPercentage <= 100);
-    require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(Token(token).cap()) == uint256(100).sub(_teamPercentage));
+    //require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(Token(token).cap()) == uint256(100).sub(_teamPercentage));
 
+    require(_distributor != address(0));
 
     presaleRates = _presaleRates;
     presaleCaps = _presaleCaps;
     saleOpeningTime = _saleOpeningTime;
-    foundationWallet = _foundationWallet;
     teamPercentage = _teamPercentage;
     lockupWallet = _lockupWallet;
     presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
+    teamWaletsDistributionPercentage = _teamWaletsDistributionPercentage;
+    distributor = _distributor;
   }
 
   /*
@@ -211,9 +213,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     Method open-zeppelin override, we need to sub if any wei was returned
   */
   function _forwardFunds() internal {
-    uint256 valueToDeposit = msg.value.sub(overflowWei);
-    vault.deposit.value(valueToDeposit)(msg.sender);
-    investors.push(msg.sender);
+    wallet.transfer(msg.value.sub(overflowWei));
     overflowWei = 0;
   }
 
@@ -228,7 +228,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   /*
     Method for forwarding tokens for investors that are provided only
   */
-  function forwardTokens(address[] _investors) public onlyOwner {
+  function forwardTokens(address[] _investors) public onlyDistributor {
     require(hasClosed());
     for (uint i = 0; i < _investors.length; i = i.add(1)) {
       address _investor = _investors[i];
@@ -242,29 +242,16 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
 
   /*
    OpenZeppelin FinalizableCrowdsale method override - token distribution
-   and finishing routines. Also refund all the none whitelisted _investors
-   and close the vault
+   and finishing routines.
   */
   function finalization() internal {
     Token _token = Token(token);
-
-    vault.enableRefunds();
-    for (uint i = 0; i < investors.length; i = i.add(1)) {
-      address _investor = investors[i];
-      uint256 _amount = balances[_investor];
-      if (_amount > 0) {
-        vault.refund(_investor);
-        balances[_investor] = 0;
-      }
-    }
-    vault.disableRefunds();
-    vault.close();
 
     uint256 _teamTokens = _token.cap().mul(teamPercentage).div(100);
 
     for (uint i = 0; i < teamWallets.length; i = i.add(1)) {
       address _teamWallet = teamWallets[i];
-      uint256 _percentage = _teamWaletsDistributionPercentage[i];
+      uint256 _percentage = teamWaletsDistributionPercentage[i];
       require(_token.mint(_teamWallet, _teamTokens.mul(_percentage).div(100)));
     }
 
