@@ -43,7 +43,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
 
   // modifier for allowing only distributor call the method
   modifier onlyDistributor {
-      require(msg.sender == distributor);
+      require(msg.sender == distributor || msg.sender == owner);
       _;
   }
 
