@@ -30,10 +30,11 @@ contract('TokenCrowdsaleTest', function (accounts) {
   let salePhaseRate = 10000;
   let presaleCaps = [211500e21, 277500e21, 338000e21];
   let presaleRates = [13000, 12000, 11000];
-  let totalIcoCap = 488e24;
+  let totalIcoCap = 588e24;
+  let publicIcoCap = 448e24;
   let teamPercentage = 40;
-  let team1Percentage = 15;
-  let team2Percentage = 25;
+  let team1Percentage = 40;
+  let team2Percentage = 60;
   let icoPercentage = 60;
   let privatePresaleCap = 140000e21;
 
@@ -162,7 +163,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(44900), gasPrice: 0 }).should.be.fulfilled;
       const postPurchaseInvestorBalance = web3.eth.getBalance(investor1);
       //should return 100eth to investor
-      web3.fromWei(prePurchaseInvestorBalance.minus(postPurchaseInvestorBalance)).should.be.bignumber.equal(34800);
+      web3.fromWei(prePurchaseInvestorBalance.minus(postPurchaseInvestorBalance)).should.be.bignumber.equal(44800);
     });
     it('should not mint any tokens while purchasing during presale', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
@@ -261,23 +262,28 @@ contract('TokenCrowdsaleTest', function (accounts) {
       let mintingFinished = await this.token.mintingFinished();
       mintingFinished.should.be.equal(true);
     });
-    it('should assign correct ammount of tokens to foundation when no tokens where sold', async function() {
+    it('should assign correct ammount of tokens to teams when no tokens where sold', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let foundationBalance = await this.token.balanceOf(foundation);
+      let team1Balance = await this.token.balanceOf(team1);
+      let team2Balance = await this.token.balanceOf(team2);
       let tokenCap = await this.token.cap();
-      let expectedfoundationBalance = new BigNumber(tokenCap).times(teamPercentage/100);
-      foundationBalance.should.be.bignumber.equal(expectedfoundationBalance);
+      let teamsBalance = team1Balance.plus(team2Balance);
+      let expectedTeamBalance = new BigNumber(tokenCap).times(teamPercentage/100);
+      teamsBalance.should.be.bignumber.equal(expectedTeamBalance);
     });
     it('should assign correct ammount of tokens to foundation when all tokens where sold', async function() {
       await increaseTimeTo(this.saleOpeningTime + duration.weeks(1));
       await this.crowdsale.buyTokens(investor1, {from: investor1, value: ether(50000) }).should.be.fulfilled;
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
-      let foundationBalance = await this.token.balanceOf(foundation);
+
+      let team1Balance = await this.token.balanceOf(team1);
+      let team2Balance = await this.token.balanceOf(team2);
+
       let tokenCap = await this.token.cap();
-      let expectedfoundationBalance = new BigNumber(tokenCap).times(teamPercentage/100);
-      foundationBalance.should.be.bignumber.equal(expectedfoundationBalance);
+      let expectedTeamBalance = new BigNumber(tokenCap).times(teamPercentage/100);
+      team1Balance.plus(team2Balance).should.be.bignumber.equal(expectedTeamBalance);
     });
     it('should assign correct ammount of tokens to private presale wallet when no tokens where sold', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
@@ -304,7 +310,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
       await this.crowdsale.forwardTokens([investor1], {from : distributor});
       await this.crowdsale.finalize();
       let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
-      lockupBalance.should.be.bignumber.equal(privatePresaleCap);
+      lockupBalance.should.be.bignumber.equal(0);
     });
     it('should assign leftover tokens to lockup when some tokens where sold', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));
@@ -314,57 +320,18 @@ contract('TokenCrowdsaleTest', function (accounts) {
       let investorBalance = await this.token.balanceOf(investor1);
       let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
       let totalBalance = investorBalance.plus(lockupBalance);
-      totalBalance.should.be.bignumber.equal(totalIcoCap);
+      totalBalance.should.be.bignumber.equal(publicIcoCap);
     });
     it('should assign all ico tokens to lockup when no tokens where sold', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize();
       let lockupBalance = await this.token.balanceOf(this.vestingToken.address);
-      lockupBalance.should.be.bignumber.equal(totalIcoCap);
+      lockupBalance.should.be.bignumber.equal(publicIcoCap);
     });
     it('should not allow finalize when finalized', async function() {
       await increaseTimeTo(this.closingTime + duration.weeks(1));
       await this.crowdsale.finalize().should.be.fulfilled;
       await this.crowdsale.finalize().should.be.rejectedWith(EVMRevert);
-    });
-    it('should forward funds to wallet when whitelisted and finalized', async function() {
-      await increaseTimeTo(this.openingTime + duration.weeks(1));
-      const prePurchaseBalance = web3.eth.getBalance(wallet);
-      await this.crowdsale.buyTokens(investor1, {from: investor1, value:  ether(1) }).should.be.fulfilled;
-      const postPurchaseBalance = web3.eth.getBalance(wallet);
-      postPurchaseBalance.should.be.bignumber.equal(prePurchaseBalance);
-      await increaseTimeTo(this.closingTime + duration.weeks(1));
-      await this.crowdsale.forwardTokens([investor1], {from : distributor}).should.be.fulfilled;
-      await this.crowdsale.finalize().should.be.fulfilled;
-      const postFinalizeBalance = web3.eth.getBalance(wallet);
-      postFinalizeBalance.minus(postPurchaseBalance).should.be.bignumber.equal(ether(1));
-    });
-    it('should not receive any funds to wallet when not whitelisted and finalized', async function() {
-      await increaseTimeTo(this.openingTime + duration.weeks(1));
-      const prePurchaseBalance = web3.eth.getBalance(wallet);
-      await this.crowdsale.buyTokens(investor1, {from: investor1, value:  ether(1) }).should.be.fulfilled;
-      const postPurchaseBalance = web3.eth.getBalance(wallet);
-      postPurchaseBalance.should.be.bignumber.equal(prePurchaseBalance);
-      await increaseTimeTo(this.closingTime + duration.weeks(1));
-      await this.crowdsale.forwardTokens([investor2], {from : distributor}).should.be.fulfilled;
-      await this.crowdsale.finalize().should.be.fulfilled;
-      const postFinalizeBalance = web3.eth.getBalance(wallet);
-      postFinalizeBalance.minus(postPurchaseBalance).should.be.bignumber.equal(ether(0));
-    });
-    it('should return funds to investor when not whitelisted and finalized', async function() {
-      await increaseTimeTo(this.openingTime + duration.weeks(1));
-      const prePurchaseBalance = await web3.eth.getBalance(investor3);
-      await this.crowdsale.buyTokens(investor3, {from: investor3, value:  ether(1) }).should.be.fulfilled;
-      await this.crowdsale.buyTokens(investor4, {from: investor4, value:  ether(1) }).should.be.fulfilled;
-      const postPurchaseBalance = await web3.eth.getBalance(investor3);
-      postPurchaseBalance.should.be.bignumber.gt(prePurchaseBalance.minus(ether(1.1)));
-      postPurchaseBalance.should.be.bignumber.lt(prePurchaseBalance.minus(ether(1.0)));
-      await increaseTimeTo(this.closingTime + duration.weeks(1));
-      await this.crowdsale.forwardTokens([investor4], {from : distributor}).should.be.fulfilled;
-      await this.crowdsale.finalize().should.be.fulfilled;
-      const postFinalizeBalance = await web3.eth.getBalance(investor3);
-      postFinalizeBalance.should.be.bignumber.gt(prePurchaseBalance.minus(ether(0.1)));
-      postFinalizeBalance.should.be.bignumber.lt(prePurchaseBalance);
     });
     it('should not return funds to investor when whitelisted and finalized', async function() {
       await increaseTimeTo(this.openingTime + duration.weeks(1));

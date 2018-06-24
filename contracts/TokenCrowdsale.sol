@@ -8,8 +8,7 @@ import "./Token.sol";
 contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCrowdsale {
   using SafeMath for uint256;
 
-  uint256 public constant PRIVATE_SALE_CAP = 140 * 10**24;
-  uint256 public constant ICO_SALE_CAP = 488 * 10**24;
+  uint256 public constant ICO_CAP = 588 * 10**24;
 
   // Should not be able to buy more tokens in presale than this amount
   uint256 public presaleCap;
@@ -67,7 +66,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     uint256[] _presaleCaps,
     uint256 _saleOpeningTime,
     uint256 _teamPercentage,
-    uint256[] _teamWallets,
+    address[] _teamWallets,
     uint256[] _teamWaletsDistributionPercentage,
     address _lockupWallet,
     address _distributor
@@ -83,9 +82,15 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     require(_saleOpeningTime >= openingTime);
 
     require(_teamPercentage <= 100);
-    //require(ICO_SALE_CAP.add(PRIVATE_SALE_CAP).mul(100).div(Token(token).cap()) == uint256(100).sub(_teamPercentage));
+    require(ICO_CAP.mul(100).div(Token(token).cap()) == uint256(100).sub(_teamPercentage));
 
     require(_distributor != address(0));
+
+    uint256 _totalTeamPerentage;
+    for (uint256 i = 0; i < _teamWaletsDistributionPercentage.length; i = i.add(1)) {
+      _totalTeamPerentage = _totalTeamPerentage.add(_teamWaletsDistributionPercentage[i]);
+    }
+    require(_totalTeamPerentage == 100);
 
     presaleRates = _presaleRates;
     presaleCaps = _presaleCaps;
@@ -93,6 +98,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     teamPercentage = _teamPercentage;
     lockupWallet = _lockupWallet;
     presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
+    teamWallets = _teamWallets;
     teamWaletsDistributionPercentage = _teamWaletsDistributionPercentage;
     distributor = _distributor;
   }
@@ -104,7 +110,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   */
   function _preValidatePurchase(address _beneficiary, uint256 _weiAmount) internal {
     super._preValidatePurchase(_beneficiary, _weiAmount);
-    require(tokensIssued < ICO_SALE_CAP);
+    require(tokensIssued < ICO_CAP);
     if (block.timestamp <= saleOpeningTime) {
       require(presaleCap > tokensIssued);
     }
@@ -170,8 +176,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   */
   function _processSalePurchase(address _beneficiary, uint256 _tokenAmount) internal {
     uint256 _currentSupply = tokensIssued;
-    if (_currentSupply.add(_tokenAmount) > ICO_SALE_CAP) {
-      _tokenAmount = ICO_SALE_CAP.sub(_currentSupply);
+    if (_currentSupply.add(_tokenAmount) > ICO_CAP) {
+      _tokenAmount = ICO_CAP.sub(_currentSupply);
     }
     super._processPurchase(_beneficiary, _tokenAmount);
     tokensIssued = tokensIssued.add(_tokenAmount);
@@ -268,7 +274,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     OpenZeppelin TimedCrowdsale method override - checks whether the crowdsale is over
   */
   function hasClosed() public view returns (bool) {
-    bool _soldOut = tokensIssued >= ICO_SALE_CAP;
+    bool _soldOut = tokensIssued >= ICO_CAP;
     return super.hasClosed() || _soldOut;
   }
 }
