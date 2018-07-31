@@ -16,9 +16,21 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // percetage of tokens to be forwarded to team wallet
   uint256 public constant TEAM_PERCENTAGE = 40;
 
+  // address that can distribute tokens for whitelisted investors
+  address public distributor = 0x9e1ef1ec212f5dffb41d35d9e5c14054f26c6560;
+
   // While tokens are sold in the presale their rate is calculated based on these
-  uint256[] public presaleRates;
-  uint256[] public presaleCaps;
+  uint256[] public presaleRates = [13000, 12000, 11000];
+  uint256[] public presaleCaps = [211500 * 10**21, 277500 * 10**21, 338000 * 10**21];
+
+  // wallets that will hold team tokens
+  address[] public teamWallets = [
+        0xce42bdb34189a93c55de250e011c68faee374dd3,
+        0x97a3fc5ee46852c1cf92a97b7bad42f2622267cc
+        ];
+
+  // percentages that will go to team wallets
+  uint256[] public teamWalletsDistributionPercentage = [40, 60];
 
   // Date when sale starts
   uint256 public saleOpeningTime;
@@ -29,17 +41,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // Calculating how much tokens were already issued
   uint256 public tokensIssued;
 
-  // wallets that will hold team tokens
-  address[] public teamWallets;
-
-  // percentages that will go to team wallets
-  uint256[] public teamWalletsDistributionPercentage;
-
   // wallet for the leftover tokens to be locked up
   address public lockupWallet;
-
-  // address that can distribute tokens for whitelisted investors
-  address public distributor;
 
   // modifier for allowing only distributor call the method
   modifier onlyDistributor {
@@ -52,47 +55,32 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
       address _wallet,
       uint256 _saleRate,
       uint256 _openingTime,
-      uint256 _closingTime
+      uint256 _closingTime,
+      uint256 _saleOpeningTime,
+      address _lockupWallet
   )
       public
       Crowdsale(_saleRate, _wallet, _token)
       TimedCrowdsale(_openingTime, _closingTime)
   {
      require(ICO_CAP.mul(100).div(Token(token).cap()) == uint256(100).sub(TEAM_PERCENTAGE));
+     require(teamWallets.length == teamWalletsDistributionPercentage.length);
+
+     uint256 _totalTeamPerentage;
+     for (uint256 i = 0; i < teamWalletsDistributionPercentage.length; i = i.add(1)) {
+       _totalTeamPerentage = _totalTeamPerentage.add(teamWalletsDistributionPercentage[i]);
+     }
+     require(_totalTeamPerentage == 100);
+     require(saleOpeningTime == 0);
+     require(_lockupWallet != address(0));
+
+     require(_saleOpeningTime <= closingTime);
+     require(_saleOpeningTime >= openingTime);
+
+     saleOpeningTime = _saleOpeningTime;
+     lockupWallet = _lockupWallet;
+
      tokensIssued = token.totalSupply();
-  }
-
-  function initialize (
-    uint256 _saleOpeningTime,
-    address[] _teamWallets,
-    uint256[] _teamWalletsDistributionPercentage,
-    address _lockupWallet,
-    address _distributor
-  ) public onlyOwner
-  {
-    require(saleOpeningTime == 0);
-    require(_lockupWallet != address(0));
-
-    require(_teamWallets.length == _teamWalletsDistributionPercentage.length);
-    require(_saleOpeningTime <= closingTime);
-    require(_saleOpeningTime >= openingTime);
-
-    require(_distributor != address(0));
-
-    uint256 _totalTeamPerentage;
-    for (uint256 i = 0; i < _teamWalletsDistributionPercentage.length; i = i.add(1)) {
-      _totalTeamPerentage = _totalTeamPerentage.add(_teamWalletsDistributionPercentage[i]);
-    }
-    require(_totalTeamPerentage == 100);
-
-    presaleRates = [13000, 12000, 11000];
-    presaleCaps = [211500 * 10**21, 277500 * 10**21, 338000 * 10**21];
-
-    saleOpeningTime = _saleOpeningTime;
-    lockupWallet = _lockupWallet;
-    teamWallets = _teamWallets;
-    teamWalletsDistributionPercentage = _teamWalletsDistributionPercentage;
-    distributor = _distributor;
   }
 
   /*

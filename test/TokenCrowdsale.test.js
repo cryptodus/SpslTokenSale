@@ -57,9 +57,7 @@ contract('TokenCrowdsaleTest', function (accounts) {
     await this.token.mint(presaleWallet, privatePresaleCap);
     this.vestingToken = await TeamTokenHolder.new(distributor, this.closingTime, vestingCliff, vestingDuration);
     this.crowdsale = await TokenCrowdsale.new(this.token.address, wallet, salePhaseRate,
-      this.openingTime, this.closingTime);
-    await this.crowdsale.initialize(this.saleOpeningTime, [team1, team2],
-      [team1Percentage, team2Percentage], this.vestingToken.address, distributor);
+      this.openingTime, this.closingTime, this.saleOpeningTime, this.vestingToken.address);
     await this.token.transferOwnership(this.crowdsale.address);
   });
 
