@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/crowdsale/distribution/FinalizableCrowdsale.sol";
 import "openzeppelin-solidity/contracts/crowdsale/distribution/PostDeliveryCrowdsale.sol";
@@ -11,7 +11,10 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   uint256 public constant ICO_CAP = 588 * 10**24;
 
   // Should not be able to buy more tokens in presale than this amount
-  uint256 public presaleCap;
+  uint256 public constant PRESALE_CAP = 338000 * 10**21;
+
+  // percetage of tokens to be forwarded to team wallet
+  uint256 public constant TEAM_PERCENTAGE = 40;
 
   // While tokens are sold in the presale their rate is calculated based on these
   uint256[] public presaleRates;
@@ -29,11 +32,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   // wallets that will hold team tokens
   address[] public teamWallets;
 
-    // percentages that will go to team wallets
-  uint256[] public teamWaletsDistributionPercentage;
-
-  // percetage of tokens to be forwarded to team wallet
-  uint256 public teamPercentage;
+  // percentages that will go to team wallets
+  uint256[] public teamWalletsDistributionPercentage;
 
   // wallet for the leftover tokens to be locked up
   address public lockupWallet;
@@ -58,16 +58,14 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
       Crowdsale(_saleRate, _wallet, _token)
       TimedCrowdsale(_openingTime, _closingTime)
   {
+     require(ICO_CAP.mul(100).div(Token(token).cap()) == uint256(100).sub(TEAM_PERCENTAGE));
      tokensIssued = token.totalSupply();
   }
 
   function initialize (
-    uint256[] _presaleRates,
-    uint256[] _presaleCaps,
     uint256 _saleOpeningTime,
-    uint256 _teamPercentage,
     address[] _teamWallets,
-    uint256[] _teamWaletsDistributionPercentage,
+    uint256[] _teamWalletsDistributionPercentage,
     address _lockupWallet,
     address _distributor
   ) public onlyOwner
@@ -75,31 +73,25 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     require(saleOpeningTime == 0);
     require(_lockupWallet != address(0));
 
-    require(_presaleRates.length > 0);
-    require(_presaleRates.length == _presaleCaps.length);
-    require(_teamWallets.length == _teamWaletsDistributionPercentage.length);
+    require(_teamWallets.length == _teamWalletsDistributionPercentage.length);
     require(_saleOpeningTime <= closingTime);
     require(_saleOpeningTime >= openingTime);
-
-    require(_teamPercentage <= 100);
-    require(ICO_CAP.mul(100).div(Token(token).cap()) == uint256(100).sub(_teamPercentage));
 
     require(_distributor != address(0));
 
     uint256 _totalTeamPerentage;
-    for (uint256 i = 0; i < _teamWaletsDistributionPercentage.length; i = i.add(1)) {
-      _totalTeamPerentage = _totalTeamPerentage.add(_teamWaletsDistributionPercentage[i]);
+    for (uint256 i = 0; i < _teamWalletsDistributionPercentage.length; i = i.add(1)) {
+      _totalTeamPerentage = _totalTeamPerentage.add(_teamWalletsDistributionPercentage[i]);
     }
     require(_totalTeamPerentage == 100);
 
-    presaleRates = _presaleRates;
-    presaleCaps = _presaleCaps;
+    presaleRates = [13000, 12000, 11000];
+    presaleCaps = [211500 * 10**21, 277500 * 10**21, 338000 * 10**21];
+
     saleOpeningTime = _saleOpeningTime;
-    teamPercentage = _teamPercentage;
     lockupWallet = _lockupWallet;
-    presaleCap = _presaleCaps[_presaleCaps.length.sub(1)];
     teamWallets = _teamWallets;
-    teamWaletsDistributionPercentage = _teamWaletsDistributionPercentage;
+    teamWalletsDistributionPercentage = _teamWalletsDistributionPercentage;
     distributor = _distributor;
   }
 
@@ -112,7 +104,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     super._preValidatePurchase(_beneficiary, _weiAmount);
     require(tokensIssued < ICO_CAP);
     if (block.timestamp <= saleOpeningTime) {
-      require(presaleCap > tokensIssued);
+      require(PRESALE_CAP > tokensIssued);
     }
   }
 
@@ -204,7 +196,7 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     were rate depends on sold tokens amount
   */
   function _getRateIndex(uint256 _supply) internal view returns(uint256) {
-    require(presaleCap > _supply);
+    require(PRESALE_CAP > _supply);
     uint256 _i = 0;
     while(_i < presaleCaps.length) {
       if (presaleCaps[_i] > _supply) {
@@ -219,8 +211,12 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     Method open-zeppelin override, we need to sub if any wei was returned
   */
   function _forwardFunds() internal {
-    wallet.transfer(msg.value.sub(overflowWei));
+    require(msg.value > 0);
+    require(msg.value >= overflowWei);
+
+    uint256 _amountToForward = msg.value.sub(overflowWei);
     overflowWei = 0;
+    wallet.transfer(_amountToForward);
   }
 
   /*
@@ -253,11 +249,11 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
   function finalization() internal {
     Token _token = Token(token);
 
-    uint256 _teamTokens = _token.cap().mul(teamPercentage).div(100);
+    uint256 _teamTokens = _token.cap().mul(TEAM_PERCENTAGE).div(100);
 
     for (uint i = 0; i < teamWallets.length; i = i.add(1)) {
       address _teamWallet = teamWallets[i];
-      uint256 _percentage = teamWaletsDistributionPercentage[i];
+      uint256 _percentage = teamWalletsDistributionPercentage[i];
       require(_token.mint(_teamWallet, _teamTokens.mul(_percentage).div(100)));
     }
 

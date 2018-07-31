@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity 0.4.24;
 
 import "openzeppelin-solidity/contracts/token/ERC20/CappedToken.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/PausableToken.sol";
@@ -16,7 +16,7 @@ contract Token is CappedToken, PausableToken {
   string public constant symbol = "SPSL";
   uint8 public constant decimals = 18;
 
-  function Token() public CappedToken(TOKEN_CAP) {
+  constructor() CappedToken(TOKEN_CAP) public  {
     paused = true;
   }
 }
