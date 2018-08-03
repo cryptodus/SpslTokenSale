@@ -25,12 +25,49 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
 
   // wallets that will hold team tokens
   address[] public teamWallets = [
-        0xce42bdb34189a93c55de250e011c68faee374dd3,
-        0x97a3fc5ee46852c1cf92a97b7bad42f2622267cc
-        ];
+  //  Wallet 2.0 - Founders 0xC32c7CE9632604b891eb1AFa94Ed1042a0221A77 39,200,000 SPSL 10%
+        0xC32c7CE9632604b891eb1AFa94Ed1042a0221A77,
+  //  Wallet 2.1 - Core Team 0xe2021bCBc9DDE43f71d59CA8b3c8F8B589D1FfAA 39,200,000 SPSL 10%
+        0xe2021bCBc9DDE43f71d59CA8b3c8F8B589D1FfAA,
+  //  Wallet 2.2 - Advisors & Ambassadors  0xc613A2CFe1A29c7B88256a7E181ed89793FF352b 47,040,000 SPSL 12%
+        0xc613A2CFe1A29c7B88256a7E181ed89793FF352b,
+  //  Wallet 2.3 - Marketing 0x18FeCFBe15706214296a26510F07A7ACD520adEC 23,520,000 SPSL 6%
+        0x18FeCFBe15706214296a26510F07A7ACD520adEC,
+  //  Wallet 2.4 - Partnership Incentives 0x89b75E56b14db03EC216Add30B0d44C99e48B80E 39,200,000 SPSL 10%
+        0x89b75E56b14db03EC216Add30B0d44C99e48B80E,
+  //  Wallet 2.5 - Foundation (1) 0x9dE1118829f4eb2E1e3904353C122fc8890fA3ab 40,768,000 SPSL 10,4%
+        0x9dE1118829f4eb2E1e3904353C122fc8890fA3ab,
+  //  Wallet 2.6 - Foundation (2) 0x9eB840BE16C42790E8e8751ADA684a750A411038 40,768,000 SPSL 10,4%
+        0x9eB840BE16C42790E8e8751ADA684a750A411038,
+  //  Wallet 2.7 - Foundation (3) 0x6B7753Cf2Ce37E53372d22E670D3CF9bA192e541 40,768,000 SPSL 10,4%
+        0x6B7753Cf2Ce37E53372d22E670D3CF9bA192e541,
+  //  Wallet 2.8 - Foundation (4) 0x9384fE95E7485FB62Bad8cA47C8ae7072507bdE0 40,768,000 SPSL 10,4%
+        0x9384fE95E7485FB62Bad8cA47C8ae7072507bdE0,
+  //  Wallet 2.9 - Foundation (5) 0xF7cB8Ca088D4007E14cA09B1ED1Bd0BC2f3CbCA3 40,768,000 SPSL 10,4%
+        0xF7cB8Ca088D4007E14cA09B1ED1Bd0BC2f3CbCA3];
 
   // percentages that will go to team wallets
-  uint256[] public teamWalletsDistributionPercentage = [40, 60];
+  uint256[] public teamWalletsDistributionPercentage = [
+  //  Wallet 2.0 - Founders 0xC32c7CE9632604b891eb1AFa94Ed1042a0221A77 39,200,000 SPSL 10%
+      100,
+  //  Wallet 2.1 - Core Team 0xe2021bCBc9DDE43f71d59CA8b3c8F8B589D1FfAA 39,200,000 SPSL 10%
+      100,
+  //  Wallet 2.2 - Advisors & Ambassadors  0xc613A2CFe1A29c7B88256a7E181ed89793FF352b 47,040,000 SPSL 12%
+      120,
+  //  Wallet 2.3 - Marketing 0x18FeCFBe15706214296a26510F07A7ACD520adEC 23,520,000 SPSL 6%
+      60,
+  //  Wallet 2.4 - Partnership Incentives 0x89b75E56b14db03EC216Add30B0d44C99e48B80E 39,200,000 SPSL 10%
+      100,
+  //  Wallet 2.5 - Foundation (1) 0x9dE1118829f4eb2E1e3904353C122fc8890fA3ab 40,768,000 SPSL 10,4%
+      104,
+  //  Wallet 2.6 - Foundation (2) 0x9eB840BE16C42790E8e8751ADA684a750A411038 40,768,000 SPSL 10,4%
+      104,
+  //  Wallet 2.7 - Foundation (3) 0x6B7753Cf2Ce37E53372d22E670D3CF9bA192e541 40,768,000 SPSL 10,4%
+      104,
+  //  Wallet 2.8 - Foundation (4) 0x9384fE95E7485FB62Bad8cA47C8ae7072507bdE0 40,768,000 SPSL 10,4%
+      104,
+  //  Wallet 2.9 - Foundation (5) 0xF7cB8Ca088D4007E14cA09B1ED1Bd0BC2f3CbCA3 40,768,000 SPSL 10,4%
+      104];
 
   // Date when sale starts
   uint256 public saleOpeningTime;
@@ -70,7 +107,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
      for (uint256 i = 0; i < teamWalletsDistributionPercentage.length; i = i.add(1)) {
        _totalTeamPerentage = _totalTeamPerentage.add(teamWalletsDistributionPercentage[i]);
      }
-     require(_totalTeamPerentage == 100);
+     // 1000 is used because we want to have percentage like 10.4
+     require(_totalTeamPerentage == 1000);
      require(saleOpeningTime == 0);
      require(_lockupWallet != address(0));
 
@@ -242,7 +280,8 @@ contract TokenCrowdsale is MintedCrowdsale, FinalizableCrowdsale, PostDeliveryCr
     for (uint i = 0; i < teamWallets.length; i = i.add(1)) {
       address _teamWallet = teamWallets[i];
       uint256 _percentage = teamWalletsDistributionPercentage[i];
-      require(_token.mint(_teamWallet, _teamTokens.mul(_percentage).div(100)));
+      // 1000 is used because we want to have percentage like 10.4
+      require(_token.mint(_teamWallet, _teamTokens.mul(_percentage).div(1000)));
     }
 
     uint256 _leftoverTokens = _token.cap().sub(_token.totalSupply());
